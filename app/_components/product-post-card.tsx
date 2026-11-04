@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 
 import type { ProductPost } from "../_lib/product-posts";
 import { formatDate, formatPrice } from "../_lib/formatters";
@@ -11,10 +10,13 @@ import ProductPostSlotCount from "./product-post-slot-count";
 
 export default function ProductPostCard({
   post,
+  status = post.status,
+  onStatusDetected,
 }: {
   post: ProductPost;
+  status?: ProductPost["status"];
+  onStatusDetected?: (status: ProductPost["status"]) => void;
 }) {
-  const [status, setStatus] = useState(post.status);
   const orderPrice = numericPrice(post.order_price);
   const lessPrice = numericPrice(post.less_price);
   const isLive = status === "live";
@@ -94,7 +96,7 @@ export default function ProductPostCard({
             className="mt-0 md:mt-0"
             currentStatus={status}
             formUrl={post.order_form_url}
-            onStatusDetected={setStatus}
+            onStatusDetected={onStatusDetected}
           />
         </div>
 

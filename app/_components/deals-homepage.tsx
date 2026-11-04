@@ -18,22 +18,36 @@ export default function DealsHomepage({ posts, errorMessage }: DealsHomepageProp
   const [query, setQuery] = useState("");
   const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false);
   const [isRefundTimeOpen, setIsRefundTimeOpen] = useState(false);
+  const [statusOverrides, setStatusOverrides] = useState<
+    Record<
+      string,
+      { status: ProductPost["status"]; basedOn: ProductPost["status"] }
+    >
+  >({});
   const closeDialogRef = useRef<HTMLButtonElement>(null);
   const normalizedQuery = query.trim().toLowerCase();
-  const visiblePosts = posts.filter((post) => {
-    const searchableContent = [
-      post.platform,
-      post.description,
-      post.order_price,
-      post.less_price,
-    ]
-      .join(" ")
-      .toLowerCase();
+  const visiblePosts = posts
+    .map((post) => ({
+      post,
+      status:
+        statusOverrides[post.id]?.basedOn === post.status
+          ? statusOverrides[post.id].status
+          : post.status,
+    }))
+    .filter(({ post }) => {
+      const searchableContent = [
+        post.platform,
+        post.description,
+        post.order_price,
+        post.less_price,
+      ]
+        .join(" ")
+        .toLowerCase();
 
-    return !normalizedQuery || searchableContent.includes(normalizedQuery);
-  });
-  const livePosts = visiblePosts.filter((post) => post.status === "live");
-  const overPosts = visiblePosts.filter((post) => post.status === "over");
+      return !normalizedQuery || searchableContent.includes(normalizedQuery);
+    });
+  const livePosts = visiblePosts.filter(({ status }) => status === "live");
+  const overPosts = visiblePosts.filter(({ status }) => status === "over");
 
   useEffect(() => {
     if (!isHowItWorksOpen && !isRefundTimeOpen) return;
@@ -109,8 +123,21 @@ export default function DealsHomepage({ posts, errorMessage }: DealsHomepageProp
                   <p className="text-xs font-medium text-slate-600 sm:text-sm">{livePosts.length} {livePosts.length === 1 ? "deal" : "deals"}</p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 lg:gap-4">
-                  {livePosts.map((post) => (
-                    <ProductPostCard key={post.id} post={post} />
+                  {livePosts.map(({ post, status }) => (
+                    <ProductPostCard
+                      key={post.id}
+                      onStatusDetected={(detectedStatus) =>
+                        setStatusOverrides((current) => ({
+                          ...current,
+                          [post.id]: {
+                            status: detectedStatus,
+                            basedOn: post.status,
+                          },
+                        }))
+                      }
+                      post={post}
+                      status={status}
+                    />
                   ))}
                 </div>
               </section>
@@ -122,8 +149,21 @@ export default function DealsHomepage({ posts, errorMessage }: DealsHomepageProp
                   <p className="text-xs font-medium text-slate-600 sm:text-sm">{overPosts.length} {overPosts.length === 1 ? "deal" : "deals"}</p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 lg:gap-4">
-                  {overPosts.map((post) => (
-                    <ProductPostCard key={post.id} post={post} />
+                  {overPosts.map(({ post, status }) => (
+                    <ProductPostCard
+                      key={post.id}
+                      onStatusDetected={(detectedStatus) =>
+                        setStatusOverrides((current) => ({
+                          ...current,
+                          [post.id]: {
+                            status: detectedStatus,
+                            basedOn: post.status,
+                          },
+                        }))
+                      }
+                      post={post}
+                      status={status}
+                    />
                   ))}
                 </div>
               </section>
