@@ -23,9 +23,14 @@ test("parses the example without using the deal label as the product name", () =
 test("recognizes platform names from common retailer URLs", () => {
   assert.equal(platformFromUrl("https://www.blinkit.com/prn/product"), "Blinkit");
   assert.equal(platformFromUrl("https://www.zeptonow.com/pn/product"), "Zepto");
+  assert.equal(platformFromUrl("https://fktr.in/3HIj2n0"), "Flipkart");
   assert.equal(
     parseProductPostMessage("https://blinkit.com/prn/product").platform,
     "Blinkit",
+  );
+  assert.equal(
+    parseProductPostMessage("https://fktr.in/tIGjh0w").platform,
+    "Flipkart",
   );
 });
 
@@ -324,15 +329,15 @@ test("infers product name and platform from ordinary deal-message lines", () => 
   const message = "Winter Jacket Del/err 50 extra\nAmazon link: https://www.amazon.in/dp/example\n320 less";
   const metadata = parseProductPostMessage(message);
 
-  assert.equal(metadata.productName, "Winter Jacket");
+  assert.equal(metadata.productName, "");
   assert.equal(metadata.platform, "Amazon");
   assert.equal(inferProductNameFromMessage(message), "Winter Jacket");
 });
 
-test("accepts explicit product names and rejects generic deal labels", () => {
-  assert.equal(parseProductPostMessage("Product: Nike Running Shoes\nReview\n320 less").productName, "Nike Running Shoes");
-  assert.equal(parseProductPostMessage("Product Name: Samsung Galaxy S24").productName, "Samsung Galaxy S24");
-  assert.equal(parseProductPostMessage("Item: Portable Smart Lamp").productName, "Portable Smart Lamp");
+test("does not detect product names from captions or links", () => {
+  assert.equal(parseProductPostMessage("Product: Nike Running Shoes\nReview\n320 less").productName, "");
+  assert.equal(parseProductPostMessage("Product Name: Samsung Galaxy S24").productName, "");
+  assert.equal(parseProductPostMessage("Item: Portable Smart Lamp").productName, "");
   assert.equal(parseProductPostMessage("Review\nOrder links:\nhttps://www.amazon.in/dp/example").productName, "");
   assert.equal(parseProductPostMessage("Rating 69\nhttps://www.amazon.in/dp/example").productName, "");
   assert.equal(parseProductPostMessage("Order link:\nhttps://www.amazon.in/s?k=Winter+Jacket+for+man&rh=p_78%3AB0CGHYDJFD%2Cssx%3Arelevance\nReview").productName, "");
@@ -368,7 +373,7 @@ test("resolves FirstCry and Amazon examples without exposing instructions or cod
 
   try {
     const firstCry = await resolveProductPostMetadata(exampleMessage);
-    assert.equal(firstCry.productName, "BAYBEE Bedside Crib");
+    assert.equal(firstCry.productName, "");
     assert.equal(firstCry.brand, "Dom");
     assert.equal(firstCry.platform, "FirstCry");
     assert.equal(firstCry.orderPrice, 11999);
@@ -377,7 +382,7 @@ test("resolves FirstCry and Amazon examples without exposing instructions or cod
     const amazon = await resolveProductPostMetadata(
       "🔗 *Order Link:*\nhttps://www.amazon.in/s?k=Winter+Jacket+for+man&rh=p_78%3AB0CGHYDJFD%2Cssx%3Arelevance\nReview",
     );
-    assert.equal(amazon.productName, "Winter Jacket for Man");
+    assert.equal(amazon.productName, "");
   } finally {
     global.fetch = originalFetch;
   }

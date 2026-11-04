@@ -229,14 +229,6 @@ function isOperationalInstructionSentence(normalized: string) {
 }
 
 const labels = {
-  productName: [
-    "product name",
-    "product title",
-    "item name",
-    "product",
-    "item",
-    "title",
-  ],
   brand: ["brand name", "brand"],
   platform: ["platform name", "platform", "store", "website"],
   orderPrice: [
@@ -504,6 +496,8 @@ export function platformFromUrl(value: string) {
       ["amazon.in", "Amazon"],
       ["amzn.in", "Amazon"],
       ["fkrt.it", "Flipkart"],
+      ["fktr.in", "Flipkart"],
+      ["myntr.it", "Myntra"],
       ["amazon.com", "Amazon"],
       ["flipkart.com", "Flipkart"],
       ["myntra.com", "Myntra"],
@@ -828,23 +822,9 @@ export function parseProductPostMessage(
     rating: "",
   };
 
-  const lines = message.split(/\r?\n/);
   const detectedPrices = extractProductPrices(message);
 
-  for (const line of lines) {
-    if (!metadata.productName) {
-      const labeledName = valueAfterLabel(
-        line,
-        labels.productName,
-      );
-
-      metadata.productName = isValidProductName(
-        labeledName,
-      )
-        ? cleanProductTitle(labeledName)
-        : "";
-    }
-
+  for (const line of message.split(/\r?\n/)) {
     if (!metadata.brand) {
       metadata.brand = valueAfterLabel(
         line,
@@ -874,11 +854,6 @@ export function parseProductPostMessage(
     metadata.platform = productUrl
       ? platformFromUrl(productUrl)
       : "";
-  }
-
-  if (!metadata.productName) {
-    metadata.productName =
-      inferProductNameFromMessage(message);
   }
 
   return metadata;

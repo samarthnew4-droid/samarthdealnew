@@ -23,7 +23,6 @@ export default function DealsHomepage({ posts, errorMessage }: DealsHomepageProp
   const visiblePosts = posts.filter((post) => {
     const searchableContent = [
       post.platform,
-      post.product_name,
       post.description,
       post.order_price,
       post.less_price,

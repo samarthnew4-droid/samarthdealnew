@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from "./supabase-server.ts";
 import { classifySupabaseError, logSupabaseError } from "./supabase-error.ts";
-import { cleanProductTitle, deriveProductNameFromUrl, inferProductNameFromMessage, isValidProductName, parseProductPostMessage } from "./product-post-parser.ts";
+import { cleanProductTitle, isValidProductName, nullablePrice, parseProductPostMessage } from "./product-post-parser.ts";
 import { firstProductOrderLink } from "./product-links.ts";
 
 export type AdminProductPost = {
@@ -27,39 +27,24 @@ export type AdminProductPostsResult = {
 
 const baseSelect = "id, image_url, description, status, created_at, updated_at";
 const baseSelectWithSerial = `${baseSelect}, serial_number`;
-const metadataSelectWithoutSerial = "id, image_url, description, product_name, brand, platform, order_price, less_price, status, created_at, updated_at, published_at, rating";
+const metadataFallbackSelect = "id, image_url, description, product_name, brand, platform, order_price, less_price, status, created_at, updated_at, serial_number";
 const metadataSelect = "id, image_url, description, product_name, brand, platform, order_price, less_price, status, created_at, updated_at, published_at, rating, serial_number";
 
 async function normalizePost(row: Record<string, unknown>): Promise<AdminProductPost> {
   const description = String(row.description);
   const parsed = parseProductPostMessage(description);
   const productLink = firstProductOrderLink(description);
-  const productUrl = productLink?.url;
-  const storedNameCandidate = typeof row.product_name === "string" ? cleanProductTitle(row.product_name) : "";
-  const storedName = isValidProductName(storedNameCandidate) ? storedNameCandidate : "";
   const brandCandidate = typeof row.brand === "string" ? cleanProductTitle(row.brand) : "";
   const brand = isValidProductName(brandCandidate) ? brandCandidate : null;
-  const parsedNameCandidate = cleanProductTitle(parsed.productName || "");
-  const parsedName = isValidProductName(parsedNameCandidate) ? parsedNameCandidate : "";
-  const urlNameCandidate = cleanProductTitle(deriveProductNameFromUrl(productUrl ?? ""));
-  const urlName = isValidProductName(urlNameCandidate) ? urlNameCandidate : "";
-  const inferredNameCandidate = cleanProductTitle(inferProductNameFromMessage(description));
-  const inferredName = isValidProductName(inferredNameCandidate) ? inferredNameCandidate : "";
-  const localName =
-    storedName ||
-    parsedName ||
-    urlName ||
-    brand ||
-    inferredName;
   return {
     id: String(row.id),
     image_url: String(row.image_url),
     description,
-    product_name: localName || null,
+    product_name: null,
     brand,
     platform: productLink?.platform || (typeof row.platform === "string" ? row.platform : parsed.platform || null),
-    order_price: typeof row.order_price === "number" || typeof row.order_price === "string" ? row.order_price : null,
-    less_price: typeof row.less_price === "number" || typeof row.less_price === "string" ? row.less_price : null,
+    order_price: nullablePrice(parsed.orderPrice) ?? (typeof row.order_price === "number" || typeof row.order_price === "string" ? row.order_price : null),
+    less_price: nullablePrice(parsed.lessPrice) ?? (typeof row.less_price === "number" || typeof row.less_price === "string" ? row.less_price : null),
     rating: validRating(row.rating),
     serial_number: validSerialNumber(row.serial_number),
     published_at: typeof row.published_at === "string" ? row.published_at : null,
@@ -101,24 +86,24 @@ export async function getAdminProductPosts(): Promise<AdminProductPostsResult> {
       logSupabaseError("Optional product post columns are unavailable; trying a compatible selection.", queryError, "warn");
       const fallbackMetadata = await supabase
         .from("product_posts")
-        .select(metadataSelectWithoutSerial)
+        .select(metadataFallbackSelect)
         .order("created_at", { ascending: false });
       rows = (fallbackMetadata.data ?? []) as unknown[];
       queryError = fallbackMetadata.error;
       if (queryError && classifySupabaseError(queryError) === "missing-column") {
-        const fallbackWithSerial = await supabase
+        const fallback = await supabase
           .from("product_posts")
           .select(baseSelectWithSerial)
           .order("created_at", { ascending: false });
-        rows = (fallbackWithSerial.data ?? []) as unknown[];
-        queryError = fallbackWithSerial.error;
+        rows = (fallback.data ?? []) as unknown[];
+        queryError = fallback.error;
         if (queryError && classifySupabaseError(queryError) === "missing-column") {
-          const fallback = await supabase
+          const legacyFallback = await supabase
             .from("product_posts")
             .select(baseSelect)
             .order("created_at", { ascending: false });
-          rows = (fallback.data ?? []) as unknown[];
-          queryError = fallback.error;
+          rows = (legacyFallback.data ?? []) as unknown[];
+          queryError = legacyFallback.error;
         }
       }
     }
@@ -153,27 +138,27 @@ export async function getAdminProductPost(id: string): Promise<{ post: AdminProd
       logSupabaseError("Optional product post columns are unavailable; trying a compatible selection.", queryError, "warn");
       const fallbackMetadata = await supabase
         .from("product_posts")
-        .select(metadataSelectWithoutSerial)
+        .select(metadataFallbackSelect)
         .eq("id", id)
         .maybeSingle();
       row = fallbackMetadata.data;
       queryError = fallbackMetadata.error;
       if (queryError && classifySupabaseError(queryError) === "missing-column") {
-        const fallbackWithSerial = await supabase
+        const fallback = await supabase
           .from("product_posts")
           .select(baseSelectWithSerial)
           .eq("id", id)
           .maybeSingle();
-        row = fallbackWithSerial.data;
-        queryError = fallbackWithSerial.error;
+        row = fallback.data;
+        queryError = fallback.error;
         if (queryError && classifySupabaseError(queryError) === "missing-column") {
-          const fallback = await supabase
+          const legacyFallback = await supabase
             .from("product_posts")
             .select(baseSelect)
             .eq("id", id)
             .maybeSingle();
-          row = fallback.data;
-          queryError = fallback.error;
+          row = legacyFallback.data;
+          queryError = legacyFallback.error;
         }
       }
     }
