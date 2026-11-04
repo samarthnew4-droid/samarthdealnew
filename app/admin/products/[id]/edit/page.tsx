@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import BrandWordmark from "../../../../_components/brand-wordmark";
 import { getAdminProductPost } from "../../../../_lib/admin-product-posts";
 import { getAdminSession } from "../../../../_lib/admin-auth";
 import CreateDealForm from "../../../create-deal/create-deal-form";
@@ -33,7 +34,9 @@ export default async function EditProductPostPage({ params }: { params: Promise<
       <div className="mx-auto max-w-6xl">
         <header className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <div>
-            <Link className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700" href="/admin">SAMARTH DEALS</Link>
+            <Link aria-label="Samarth Deals dashboard" className="block w-full max-w-[400px]" href="/admin">
+              <BrandWordmark className="block h-auto w-full" />
+            </Link>
             <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Edit Product Post</h1>
             <p className="mt-2 text-sm text-slate-600">{post.product_name || "Update product details and save your changes."}</p>
           </div>
