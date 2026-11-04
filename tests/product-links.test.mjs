@@ -3,8 +3,17 @@ import test from "node:test";
 
 import {
   identifyProductOrderUrl,
+  isAmazonPlatform,
   productOrderLinksInDescription,
 } from "../app/_lib/product-links.ts";
+
+test("recognizes Amazon platform name variants", () => {
+  assert.equal(isAmazonPlatform("Amazon"), true);
+  assert.equal(isAmazonPlatform("Amazon.in"), true);
+  assert.equal(isAmazonPlatform("Amazon India"), true);
+  assert.equal(isAmazonPlatform("Flipkart"), false);
+  assert.equal(isAmazonPlatform(undefined), false);
+});
 
 test("normalizes tracking parameters and identifies the same Amazon product", () => {
   const first = identifyProductOrderUrl(

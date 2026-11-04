@@ -6,7 +6,7 @@ import { tokenizeDescription } from "../../_lib/description-links";
 import { extractDealInformation } from "../../_lib/deal-detail";
 import { formatDate, formatPrice } from "../../_lib/formatters";
 import { getPublishedProductPost } from "../../_lib/product-posts";
-import { firstProductOrderLink } from "../../_lib/product-links";
+import { firstProductOrderLink, isAmazonPlatform } from "../../_lib/product-links";
 import { numericPrice } from "../../_lib/pricing";
 import { whatsappGroupLink } from "../../_lib/whatsapp-group-link";
 
@@ -31,7 +31,8 @@ export default async function ProductPostPage({ params }: { params: Promise<{ id
   const dealInformation = extractDealInformation(post.description);
   const productLink = firstProductOrderLink(post.description);
   const platformName = post.platform?.trim() || productLink?.platform || "Platform not specified";
-  const isAmazon = platformName.toLowerCase() === "amazon";
+  const isAmazon =
+    isAmazonPlatform(platformName) || isAmazonPlatform(productLink?.platform);
   const originalCaption = post.description.trimEnd();
   const caption = originalCaption ? `${originalCaption}\n\n${mandatoryJoinNotice}` : mandatoryJoinNotice;
   const captionParts = tokenizeDescription(caption);

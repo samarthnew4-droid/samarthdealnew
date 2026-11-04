@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { ProductPost } from "../_lib/product-posts";
 import { formatDate, formatPrice } from "../_lib/formatters";
 import { numericPrice } from "../_lib/pricing";
-import { firstProductOrderLink } from "../_lib/product-links";
+import { firstProductOrderLink, isAmazonPlatform } from "../_lib/product-links";
 import ProductPostSlotCount from "./product-post-slot-count";
 
 export default function ProductPostCard({
@@ -17,7 +17,8 @@ export default function ProductPostCard({
   const detailUrl = `/products/${post.id}`;
   const productLink = firstProductOrderLink(post.description);
   const platformName = post.platform?.trim() || productLink?.platform || "Platform not specified";
-  const isAmazon = platformName.toLowerCase() === "amazon";
+  const isAmazon =
+    isAmazonPlatform(platformName) || isAmazonPlatform(productLink?.platform);
   const hasRatingKeyword = /rating|regular rating|rating deal/i.test(post.description);
 
   return (

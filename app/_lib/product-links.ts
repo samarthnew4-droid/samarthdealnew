@@ -35,6 +35,10 @@ export type ProductOrderLink = {
   identity: string;
 };
 
+export function isAmazonPlatform(platform: string | null | undefined) {
+  return platform?.toLowerCase().includes("amazon") ?? false;
+}
+
 function isDomainOrSubdomain(hostname: string, domain: string) {
   return hostname === domain || hostname.endsWith(`.${domain}`);
 }
