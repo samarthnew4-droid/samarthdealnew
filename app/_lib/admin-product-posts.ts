@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "./supabase-server.ts";
 import { classifySupabaseError, logSupabaseError } from "./supabase-error.ts";
 import { cleanProductTitle, isValidProductName, nullablePrice, parseProductPostMessage } from "./product-post-parser.ts";
 import { firstProductOrderLink } from "./product-links.ts";
+import { assignMissingProductSerialNumbers } from "./product-serial.ts";
 
 export type AdminProductPost = {
   id: string;
@@ -113,7 +114,8 @@ export async function getAdminProductPosts(): Promise<AdminProductPostsResult> {
       return { posts: [], errorMessage: userFacingError(queryError) };
     }
 
-    return { posts: await Promise.all(rows.map((row) => normalizePost(row as Record<string, unknown>))), errorMessage: null };
+    const posts = await Promise.all(rows.map((row) => normalizePost(row as Record<string, unknown>)));
+    return { posts: assignMissingProductSerialNumbers(posts), errorMessage: null };
   } catch (error) {
     logSupabaseError("Unable to load admin product posts.", error);
     return {

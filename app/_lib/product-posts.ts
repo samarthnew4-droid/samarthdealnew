@@ -11,6 +11,7 @@ import {
   parseProductPostMessage,
 } from "./product-post-parser.ts";
 import { firstProductOrderLink } from "./product-links.ts";
+import { assignMissingProductSerialNumbers } from "./product-serial.ts";
 
 export type ProductPost = {
   id: string;
@@ -222,14 +223,16 @@ export async function getPublishedProductPosts(): Promise<ProductPostsResult> {
       };
     }
 
-    return {
-      posts: await Promise.all(
-        rows.map((row) =>
-          normalizePost(
-            row as Record<string, unknown>,
-          ),
+    const posts = await Promise.all(
+      rows.map((row) =>
+        normalizePost(
+          row as Record<string, unknown>,
         ),
       ),
+    );
+
+    return {
+      posts: assignMissingProductSerialNumbers(posts),
       errorMessage: null,
     };
   } catch (error) {
