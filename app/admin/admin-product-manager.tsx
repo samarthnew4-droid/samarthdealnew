@@ -133,17 +133,20 @@ export default function AdminProductManager({
         className="my-3 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"
         key={post.id}
       >
-        <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          <img
+            alt="Product"
+            className="h-16 w-16 shrink-0 rounded-xl border border-slate-200 bg-slate-50 object-contain p-1 sm:h-20 sm:w-20"
+            src={post.image_url}
+          />
+          <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-800">
               #{post.serial_number ?? "—"}
             </span>
-            <h4 className="min-w-0 break-words text-sm font-bold text-slate-950">
-              {post.product_name || "Product"}
-            </h4>
             {numericPrice(post.order_price) !== null && (
               <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-800">
-                Order {formatPrice(post.order_price)}
+                Order/Product {formatPrice(post.order_price)}
               </span>
             )}
             {numericPrice(post.less_price) !== null && (
@@ -173,6 +176,7 @@ export default function AdminProductManager({
             formUrl={formUrl}
             onStatusDetected={(status) => void syncAutoDetectedStatus(post.id, status)}
           />
+          </div>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <button

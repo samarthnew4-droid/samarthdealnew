@@ -70,6 +70,46 @@ test("recognizes a known product short-link without guessing its platform", () =
   assert.equal(link.identity, "bitli.in:short-link:qyegq8q");
 });
 
+test("recognizes Flipkart short links in product captions", () => {
+  for (const url of ["https://fktr.in/3HIj2n0", "https://fktr.in/tIGjh0w"]) {
+    const [link] = productOrderLinksInDescription(
+      `Deal link: [${url}](${url})`,
+    );
+
+    assert.ok(link, url);
+    assert.equal(link.platform, "Flipkart");
+    assert.equal(link.url, url);
+  }
+});
+
+test("recognizes Blinkit product links in Markdown captions", () => {
+  for (const productId of ["807602", "792559"]) {
+    const url = `https://blinkit.com/prn/x/prid/${productId}`;
+    const [link] = productOrderLinksInDescription(
+      `Product: [${url}](${url})`,
+    );
+
+    assert.ok(link, url);
+    assert.equal(link.platform, "Blinkit");
+    assert.equal(link.url, url);
+    assert.equal(link.identity, `blinkit.com:path:${productId}`);
+  }
+});
+
+test("recognizes Myntra short links in plain and Markdown captions", () => {
+  for (const [caption, url] of [
+    ["Deal: [https://myntr.it/oPJYxtG](https://myntr.it/oPJYxtG)", "https://myntr.it/oPJYxtG"],
+    ["Deal: https://myntr.it/zgyhEty", "https://myntr.it/zgyhEty"],
+  ]) {
+    const [link] = productOrderLinksInDescription(caption);
+
+    assert.ok(link, url);
+    assert.equal(link.platform, "Myntra");
+    assert.equal(link.url, url);
+    assert.equal(link.identity, `myntr.it:short-link:${url.split("/").at(-1).toLowerCase()}`);
+  }
+});
+
 test("extracts only actual product or order links from a caption", () => {
   const links = productOrderLinksInDescription(
     "Group: https://chat.whatsapp.com/example\nStore: https://example.com/\nProduct: https://www.amazon.in/dp/B0F53TTJF5",

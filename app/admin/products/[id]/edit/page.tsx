@@ -38,7 +38,9 @@ export default async function EditProductPostPage({ params }: { params: Promise<
               <BrandWordmark className="block h-auto w-full" />
             </Link>
             <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Edit Product Post</h1>
-            <p className="mt-2 text-sm text-slate-600">{post.product_name || "Update product details and save your changes."}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-slate-200 px-2.5 py-1 text-xs font-black text-slate-800">#{post.serial_number ?? "—"}</span>
+            </div>
           </div>
           <nav className="flex flex-wrap items-center gap-2 text-sm font-bold sm:gap-3">
             <Link className="rounded-xl px-3 py-2 text-slate-600 transition hover:bg-white hover:text-slate-950 focus:outline-none focus:ring-4 focus:ring-slate-950/10" href="/admin">Dashboard</Link>

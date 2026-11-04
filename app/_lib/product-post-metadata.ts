@@ -1,9 +1,5 @@
 import {
-  cleanProductTitle,
-  deriveProductNameFromUrl,
   extractProductUrls,
-  inferProductNameFromMessage,
-  isValidProductName,
   nullablePrice,
   parseProductPostMessage,
   platformFromUrl,
@@ -12,7 +8,6 @@ import {
 const requestTimeoutMs = 1500;
 
 type FetchedProductMetadata = {
-  name: string;
   brand: string;
   rating: string;
 };
@@ -198,7 +193,6 @@ function jsonLdProduct(
       }
 
       return {
-        name: text(product.name),
         brand,
         rating,
       };
@@ -208,20 +202,9 @@ function jsonLdProduct(
   }
 
   return {
-    name: "",
     brand: "",
     rating: "",
   };
-}
-
-function htmlTitle(html: string) {
-  const match = html.match(
-    /<title[^>]*>([\s\S]*?)<\/title>/i,
-  );
-
-  return match?.[1]
-    ? decodeHtmlEntities(match[1]).trim()
-    : "";
 }
 
 function listingUrlFromRedirect(url: string) {
@@ -269,7 +252,6 @@ async function fetchProductPage(
 
     if (!response.ok) {
       return {
-        name: "",
         brand: "",
         rating: "",
       };
@@ -282,39 +264,7 @@ async function fetchProductPage(
     const structured =
       jsonLdProduct(html);
 
-    const ogTitle = metaContent(
-      html,
-      "property",
-      "og:title",
-    );
-
-    const title = htmlTitle(html);
-
-    /*
-     * Priority:
-     *
-     * JSON-LD Product.name
-     * > og:title
-     * > <title>
-     */
-    const rawName =
-      structured.name ||
-      ogTitle ||
-      title;
-
-    const cleanedName =
-      cleanProductTitle(rawName);
-
-    const genericTitle =
-      /^(?:firstcry|amazon|flipkart|myntra|meesho)(?:\s+(?:store|india|online|new))?$/i.test(
-        cleanedName,
-      );
-
     return {
-      name: genericTitle
-        ? ""
-        : cleanedName,
-
       brand:
         structured.brand ||
         metaContent(
@@ -353,7 +303,6 @@ async function fetchProductPage(
     };
   } catch {
     return {
-      name: "",
       brand: "",
       rating: "",
     };
@@ -393,77 +342,16 @@ export async function resolveProductPostMetadata(
       platformFromUrl(url),
     ) ?? productUrls[0];
 
-  /*
-   * 1. Explicit Product Name from the message.
-   */
-  const explicitName =
-    isValidProductName(parsed.productName)
-      ? cleanProductTitle(
-          parsed.productName,
-        )
-      : "";
-
-  /*
-   * Fetch the product page only when the message has no
-   * usable labeled name. One request, short timeout,
-   * fail open.
-   */
   const fetched =
-    !explicitName && productUrl
+    productUrl
       ? await fetchProductPage(productUrl)
       : {
-          name: "",
           brand: "",
           rating: "",
         };
 
-  /*
-   * 2. Actual webpage metadata.
-   */
-  const fetchedName =
-    isValidProductName(fetched.name)
-      ? cleanProductTitle(fetched.name)
-      : "";
-
-  /*
-   * 3. Product/order URL.
-   *
-   * This is especially important for Amazon URLs such as:
-   *
-   * ?k=Winter+Jacket+for+man
-   */
-  const linkedName = productUrl
-    ? deriveProductNameFromUrl(
-        productUrl,
-      )
-    : "";
-
-  /*
-   * 4. Fallback to meaningful text in the
-   * original message.
-   */
-  const inferredName =
-    inferProductNameFromMessage(message);
-
-  /*
-   * IMPORTANT:
-   *
-   * There is intentionally NO Product Code fallback here.
-   *
-   * Product Code is not a display product name.
-   */
-  const productName =
-    explicitName ||
-    fetchedName ||
-    (isValidProductName(linkedName)
-      ? linkedName
-      : "") ||
-    (isValidProductName(inferredName)
-      ? inferredName
-      : "");
-
   return {
-    productName,
+    productName: "",
     brand:
       fetched.brand ||
       parsed.brand ||

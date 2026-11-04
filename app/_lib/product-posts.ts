@@ -6,13 +6,10 @@ import {
 } from "./order-form-slots.ts";
 import {
   cleanProductTitle,
-  deriveProductNameFromUrl,
-  inferProductNameFromMessage,
   isValidProductName,
   nullablePrice,
   parseProductPostMessage,
 } from "./product-post-parser.ts";
-import { resolveProductPostMetadata } from "./product-post-metadata.ts";
 import { firstProductOrderLink } from "./product-links.ts";
 
 export type ProductPost = {
@@ -46,9 +43,6 @@ const baseSelectWithSerial =
 
 const metadataSelect =
   "id, image_url, description, product_name, brand, platform, order_price, less_price, status, created_at, updated_at, serial_number";
-const metadataSelectWithoutSerial =
-  "id, image_url, description, product_name, brand, platform, order_price, less_price, status, created_at, updated_at";
-
 type SupabaseQueryError = {
   code?: string;
   message?: string;
@@ -75,7 +69,6 @@ function missingOptionalProductPostSchema(
 async function normalizePost(
   row: Record<string, unknown>,
   options: {
-    resolveRemoteMetadata?: boolean;
     includeOrderFormSlots?: boolean;
   } = {},
 ): Promise<ProductPost> {
@@ -84,143 +77,13 @@ async function normalizePost(
   const parsed = parseProductPostMessage(description);
 
   const productLink = firstProductOrderLink(description);
-  const productUrl = productLink?.url;
-
-  /*
-   * ------------------------------------------------------------
-   * 1. STORED PRODUCT NAME
-   * ------------------------------------------------------------
-   *
-   * Only use the database product_name if it is genuinely
-   * a valid product name.
-   */
-  const storedNameCandidate =
-    typeof row.product_name === "string"
-      ? cleanProductTitle(row.product_name)
-      : "";
-
-  const storedName = isValidProductName(
-    storedNameCandidate,
-  )
-    ? storedNameCandidate
-    : "";
   const brandCandidate =
     typeof row.brand === "string"
       ? cleanProductTitle(row.brand)
       : "";
   const validBrand = isValidProductName(brandCandidate)
     ? brandCandidate
-    : "";
-
-  /*
-   * ------------------------------------------------------------
-   * 2. PARSED PRODUCT NAME
-   * ------------------------------------------------------------
-   *
-   * IMPORTANT:
-   * Never trust parsed.productName blindly.
-   * Validate it again before displaying it.
-   */
-  const parsedNameCandidate = cleanProductTitle(
-    parsed.productName || "",
-  );
-
-  const parsedName = isValidProductName(
-    parsedNameCandidate,
-  )
-    ? parsedNameCandidate
-    : "";
-
-  /*
-   * ------------------------------------------------------------
-   * 3. PRODUCT NAME FROM URL
-   * ------------------------------------------------------------
-   *
-   * Works for URLs such as:
-   *
-   * Amazon search:
-   * Winter Jacket for Man
-   *
-   * Amazon product URL:
-   * UNIGEN Bluetooth Wireless Compatible Receiver
-   */
-  const urlNameCandidate = cleanProductTitle(
-    deriveProductNameFromUrl(productUrl ?? ""),
-  );
-
-  const urlName = isValidProductName(
-    urlNameCandidate,
-  )
-    ? urlNameCandidate
-    : "";
-
-  /*
-   * ------------------------------------------------------------
-   * 4. PRODUCT NAME INFERRED FROM MESSAGE
-   * ------------------------------------------------------------
-   */
-  const inferredNameCandidate = cleanProductTitle(
-    inferProductNameFromMessage(description),
-  );
-
-  const inferredName = isValidProductName(
-    inferredNameCandidate,
-  )
-    ? inferredNameCandidate
-    : "";
-
-  /*
-   * ------------------------------------------------------------
-   * 5. LOCAL NAME PRIORITY
-   * ------------------------------------------------------------
-   *
-   * We always prefer a valid name already available locally.
-   */
-  let localName =
-    storedName ||
-    parsedName ||
-    urlName;
-
-  /*
-   * ------------------------------------------------------------
-   * 6. REMOTE PRODUCT PAGE FALLBACK
-   * ------------------------------------------------------------
-   *
-   * If none of the local sources gives us a valid product name,
-   * inspect the actual product/order webpage.
-   *
-   * The resolver checks:
-   *   JSON-LD Product.name
-   *   og:title
-   *   <title>
-   *
-   * This is especially important for short URLs such as:
-   * https://bitli.in/...
-   */
-  if (!localName && productUrl && options.resolveRemoteMetadata) {
-    try {
-      const resolved =
-        await resolveProductPostMetadata(description);
-
-      const resolvedNameCandidate = cleanProductTitle(
-        resolved.productName || "",
-      );
-
-      if (
-        isValidProductName(
-          resolvedNameCandidate,
-        )
-      ) {
-        localName = resolvedNameCandidate;
-      }
-    } catch {
-      // If remote metadata lookup fails, keep the post usable.
-    }
-  }
-
-  if (!localName) {
-    localName = validBrand || inferredName;
-  }
+    : null;
 
   const storedLessPrice =
     typeof row.less_price === "number" ||
@@ -237,7 +100,7 @@ async function normalizePost(
 
     description,
 
-    product_name: localName || null,
+    product_name: null,
 
     brand:
       validBrand || null,
@@ -330,36 +193,25 @@ export async function getPublishedProductPosts(): Promise<ProductPostsResult> {
       error &&
       missingOptionalProductPostSchema(error)
     ) {
-      const fallbackMetadata = await supabase
+      const fallbackWithSerial = await supabase
         .from("product_posts")
-        .select(metadataSelectWithoutSerial)
+        .select(baseSelectWithSerial)
         .in("status", ["live", "over"])
         .order("created_at", {
           ascending: false,
         });
-      rows = (fallbackMetadata.data ?? []) as unknown[];
-      error = fallbackMetadata.error as SupabaseQueryError;
+      rows = (fallbackWithSerial.data ?? []) as unknown[];
+      error = fallbackWithSerial.error as SupabaseQueryError;
       if (error && missingOptionalProductPostSchema(error)) {
-        const fallbackWithSerial = await supabase
+        const legacyFallback = await supabase
           .from("product_posts")
-          .select(baseSelectWithSerial)
+          .select(baseSelect)
           .in("status", ["live", "over"])
           .order("created_at", {
             ascending: false,
           });
-        rows = (fallbackWithSerial.data ?? []) as unknown[];
-        error = fallbackWithSerial.error as SupabaseQueryError;
-        if (error && missingOptionalProductPostSchema(error)) {
-          const fallback = await supabase
-            .from("product_posts")
-            .select(baseSelect)
-            .in("status", ["live", "over"])
-            .order("created_at", {
-              ascending: false,
-            });
-          rows = (fallback.data ?? []) as unknown[];
-          error = fallback.error as SupabaseQueryError;
-        }
+        rows = (legacyFallback.data ?? []) as unknown[];
+        error = legacyFallback.error as SupabaseQueryError;
       }
     }
 
@@ -413,40 +265,29 @@ export async function getPublishedProductPost(
       error &&
       missingOptionalProductPostSchema(error)
     ) {
-      const fallbackMetadata = await supabase
+      const fallbackWithSerial = await supabase
         .from("product_posts")
-        .select(metadataSelectWithoutSerial)
+        .select(baseSelectWithSerial)
         .eq("id", id)
         .in("status", ["live", "over"])
         .maybeSingle();
-      row = fallbackMetadata.data as unknown | null;
-      error = fallbackMetadata.error as SupabaseQueryError;
+      row = fallbackWithSerial.data as unknown | null;
+      error = fallbackWithSerial.error as SupabaseQueryError;
       if (error && missingOptionalProductPostSchema(error)) {
-        const fallbackWithSerial = await supabase
+        const legacyFallback = await supabase
           .from("product_posts")
-          .select(baseSelectWithSerial)
+          .select(baseSelect)
           .eq("id", id)
           .in("status", ["live", "over"])
           .maybeSingle();
-        row = fallbackWithSerial.data as unknown | null;
-        error = fallbackWithSerial.error as SupabaseQueryError;
-        if (error && missingOptionalProductPostSchema(error)) {
-          const fallback = await supabase
-            .from("product_posts")
-            .select(baseSelect)
-            .eq("id", id)
-            .in("status", ["live", "over"])
-            .maybeSingle();
-          row = fallback.data as unknown | null;
-          error = fallback.error as SupabaseQueryError;
-        }
+        row = legacyFallback.data as unknown | null;
+        error = legacyFallback.error as SupabaseQueryError;
       }
     }
 
     return error || !row
       ? null
       : await normalizePost(row as Record<string, unknown>, {
-          resolveRemoteMetadata: true,
           includeOrderFormSlots: true,
         });
   } catch {

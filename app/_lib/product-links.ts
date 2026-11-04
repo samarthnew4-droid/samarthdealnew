@@ -87,6 +87,12 @@ function queryProductIdentity(url: URL) {
 
 function pathProductIdentity(url: URL) {
   const segments = decodedPathSegments(url).map((segment) => segment.toLowerCase());
+  if (isDomainOrSubdomain(url.hostname, "blinkit.com")) {
+    const productIdIndex = segments.lastIndexOf("prid");
+    const productId = segments[productIdIndex + 1];
+    if (productId) return `path:${productId}`;
+  }
+
   const productSegmentNames = new Set([
     "product",
     "products",
@@ -112,12 +118,18 @@ function pathProductIdentity(url: URL) {
 
   if (
     (url.hostname === "amzn.in" && segments[0] === "d" && segments[1]) ||
-    (url.hostname === "fkrt.it" && segments.length === 1 && segments[0])
+    ((url.hostname === "fkrt.it" || url.hostname === "fktr.in") &&
+      segments.length === 1 &&
+      segments[0])
   ) {
     return `path:${segments[1] ?? segments[0]}`;
   }
 
   if (url.hostname === "bitli.in" && segments.length === 1 && segments[0]) {
+    return `short-link:${segments[0]}`;
+  }
+
+  if (url.hostname === "myntr.it" && segments.length === 1 && segments[0]) {
     return `short-link:${segments[0]}`;
   }
 
@@ -144,13 +156,25 @@ export function identifyProductOrderUrl(value: string): ProductOrderLink | null 
   const hasStructuredProductPath =
     /\/(?:dp|gp\/product|products?|items?|p|product-detail|product-details)(?:\/|$)/i.test(pathname) ||
     /\/buy\/?$/i.test(pathname);
+  const isBlinkitProductPath =
+    isDomainOrSubdomain(hostname, "blinkit.com") &&
+    /\/prid\/[^/]+(?:\/|$)/i.test(pathname);
   const isKnownShortProductLink =
     (hostname === "amzn.in" && /^\/d\/[^/]+$/i.test(pathname)) ||
-    (hostname === "fkrt.it" && /^\/[^/]+$/i.test(pathname)) ||
-    (hostname === "bitli.in" && /^\/[^/]+$/i.test(pathname));
+    ((hostname === "fkrt.it" || hostname === "fktr.in") &&
+      /^\/[^/]+$/i.test(pathname)) ||
+    ((hostname === "bitli.in" || hostname === "myntr.it") &&
+      /^\/[^/]+$/i.test(pathname));
   const identity = queryIdentity ?? pathIdentity;
 
-  if (!identity || (!isKnownOrderForm && !hasOrderRoute && !hasStructuredProductPath && !isKnownShortProductLink)) {
+  if (
+    !identity ||
+    (!isKnownOrderForm &&
+      !hasOrderRoute &&
+      !hasStructuredProductPath &&
+      !isKnownShortProductLink &&
+      !isBlinkitProductPath)
+  ) {
     return null;
   }
 

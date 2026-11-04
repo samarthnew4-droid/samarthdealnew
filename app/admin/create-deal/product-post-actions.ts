@@ -74,7 +74,6 @@ function unauthorized(message: string): CreateDealState {
 
 async function metadataForPublish(formData: FormData, description: string) {
   const parsed = parseProductPostMessage(description);
-  const submittedProductName = textValue(formData, "productName");
   const submittedBrand = textValue(formData, "brand");
   const submittedPlatform = textValue(formData, "platform");
   const submittedOrderPrice = priceValue(textValue(formData, "orderPrice"));
@@ -83,7 +82,7 @@ async function metadataForPublish(formData: FormData, description: string) {
   const submittedRating = submittedRatingText ? Number(submittedRatingText) : null;
 
   return {
-    productName: submittedProductName || parsed.productName || "",
+    productName: "",
     brand: submittedBrand || parsed.brand || "",
     platform: submittedPlatform || parsed.platform || "",
     orderPrice: submittedOrderPrice ?? nullablePrice(parsed.orderPrice),

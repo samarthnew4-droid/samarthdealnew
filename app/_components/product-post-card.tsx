@@ -17,6 +17,7 @@ export default function ProductPostCard({
   const detailUrl = `/products/${post.id}`;
   const productLink = firstProductOrderLink(post.description);
   const platformName = post.platform?.trim() || productLink?.platform || "Platform not specified";
+  const isAmazon = platformName.toLowerCase() === "amazon";
   const hasRatingKeyword = /rating|regular rating|rating deal/i.test(post.description);
 
   return (
@@ -48,8 +49,10 @@ export default function ProductPostCard({
           <span className="shrink-0 rounded-full bg-[#f3f1e8] px-2.5 py-1.5 text-xs font-black text-slate-950 md:px-3 md:py-2 md:text-sm">
             #{post.serial_number ?? "—"}
           </span>
-          <span className="max-w-28 truncate rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold text-blue-800 md:text-xs">{platformName}</span>
-          {productLink && (
+          {!isAmazon && (
+            <span className="max-w-28 truncate rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold text-blue-800 md:text-xs">{platformName}</span>
+          )}
+          {productLink && !isAmazon && (
             <a
               aria-label={`Open ${platformName} product link`}
               className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-100 text-sm transition hover:bg-orange-200 focus:outline-none focus:ring-4 focus:ring-orange-500/25"
@@ -62,10 +65,6 @@ export default function ProductPostCard({
             </a>
           )}
         </div>
-
-        <h3 className="mt-2 line-clamp-2 text-sm font-bold leading-5 text-slate-900 md:text-base">
-          {post.product_name || "Product deal"}
-        </h3>
 
         <div className="mt-2 flex flex-wrap items-center gap-1.5">
           {orderPrice !== null && (
