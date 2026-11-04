@@ -65,6 +65,9 @@ export default function AdminProductManager({
   const [query, setQuery] = useState("");
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [autoStatusError, setAutoStatusError] = useState<string | null>(null);
+  const [statusOverrides, setStatusOverrides] = useState<
+    Record<string, { status: AdminProductPost["status"]; basedOn: AdminProductPost["status"] }>
+  >({});
   const statusUpdatesInProgress = useRef(new Set<string>());
   const normalizedQuery = query.trim().toLowerCase();
   const editingPost = posts.find((post) => post.id === editingPostId) ?? null;
@@ -81,17 +84,24 @@ export default function AdminProductManager({
       .toLowerCase()
       .includes(normalizedQuery);
   }, [normalizedQuery]);
-  const livePosts = useMemo(
-    () => posts.filter((post) => post.status === "live" && matchesSearch(post)),
-    [matchesSearch, posts],
+  const visiblePosts = useMemo(
+    () =>
+      posts
+        .filter(matchesSearch)
+        .map((post) => ({
+          post,
+          status:
+            statusOverrides[post.id]?.basedOn === post.status
+              ? statusOverrides[post.id].status
+              : post.status,
+        })),
+    [matchesSearch, posts, statusOverrides],
   );
-  const overPosts = useMemo(
-    () => posts.filter((post) => post.status === "over" && matchesSearch(post)),
-    [matchesSearch, posts],
-  );
+  const livePosts = visiblePosts.filter(({ status }) => status === "live");
+  const overPosts = visiblePosts.filter(({ status }) => status === "over");
   const draftPosts = useMemo(
-    () => posts.filter((post) => post.status === "draft" && matchesSearch(post)),
-    [matchesSearch, posts],
+    () => visiblePosts.filter(({ status }) => status === "draft"),
+    [visiblePosts],
   );
   const onSaved = useCallback(() => {
     setEditingPostId(null);
@@ -103,15 +113,33 @@ export default function AdminProductManager({
   ) => {
     if (statusUpdatesInProgress.current.has(postId)) return;
     statusUpdatesInProgress.current.add(postId);
+    const post = posts.find((item) => item.id === postId);
+    if (post) {
+      setStatusOverrides((current) => ({
+        ...current,
+        [postId]: { status, basedOn: post.status },
+      }));
+    }
+
+    function clearStatusOverride() {
+      setStatusOverrides((current) => {
+        const next = { ...current };
+        delete next[postId];
+        return next;
+      });
+    }
+
     try {
       const result = await setProductPostStatusAction(postId, status);
       if (result.errorMessage) {
         setAutoStatusError(result.errorMessage);
+        clearStatusOverride();
         return;
       }
       setAutoStatusError(null);
       router.refresh();
     } catch (error) {
+      clearStatusOverride();
       setAutoStatusError(
         error instanceof Error
           ? error.message
@@ -120,10 +148,10 @@ export default function AdminProductManager({
     } finally {
       statusUpdatesInProgress.current.delete(postId);
     }
-  }, [router]);
+  }, [posts, router]);
 
-  function renderProducts(products: AdminProductPost[]) {
-    return products.map((post) => {
+  function renderProducts(products: Array<{ post: AdminProductPost; status: AdminProductPost["status"] }>) {
+    return products.map(({ post, status }) => {
       const formUrl = getJayShakthiOrderFormUrl(post.description);
       const productLink = firstProductOrderLink(post.description);
       const platform = post.platform?.trim() || productLink?.platform || "Platform not specified";
@@ -166,13 +194,13 @@ export default function AdminProductManager({
                 🔥
               </a>
             )}
-            <span className={`rounded-full px-2.5 py-1 text-[10px] font-black tracking-wide ${post.status === "live" ? "bg-emerald-100 text-emerald-800" : post.status === "over" ? "bg-slate-200 text-slate-700" : "bg-amber-100 text-amber-800"}`}>
-              {post.status.toUpperCase()}
+            <span className={`rounded-full px-2.5 py-1 text-[10px] font-black tracking-wide ${status === "live" ? "bg-emerald-100 text-emerald-800" : status === "over" ? "bg-slate-200 text-slate-700" : "bg-amber-100 text-amber-800"}`}>
+              {status.toUpperCase()}
             </span>
           </div>
           <ProductPostSlotCount
             className="mt-2"
-            currentStatus={post.status}
+            currentStatus={status}
             formUrl={formUrl}
             onStatusDetected={(status) => void syncAutoDetectedStatus(post.id, status)}
           />
@@ -194,9 +222,9 @@ export default function AdminProductManager({
           >
             Edit
           </button>
-          {post.status === "over" && formUrl ? (
+          {status === "over" && formUrl ? (
             <span className="rounded-xl bg-slate-200 px-3 py-2 text-xs font-black text-slate-700">OVER</span>
-          ) : post.status === "live" ? (
+          ) : status === "live" ? (
             <StatusButton postId={post.id} status="over" />
           ) : (
             <StatusButton postId={post.id} status="live" />
