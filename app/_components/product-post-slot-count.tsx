@@ -30,6 +30,14 @@ export default function ProductPostSlotCount({
     const requestedFormUrl = formUrl;
     const controller = new AbortController();
 
+    function markUnavailable() {
+      setAvailability(null);
+      setUnavailable(true);
+      if (currentStatus === "live") {
+        onStatusDetectedRef.current?.("over");
+      }
+    }
+
     async function loadSlots() {
       try {
         const response = await fetch(
@@ -38,7 +46,7 @@ export default function ProductPostSlotCount({
         );
 
         if (!response.ok) {
-          setUnavailable(true);
+          markUnavailable();
           return;
         }
 
@@ -47,12 +55,17 @@ export default function ProductPostSlotCount({
         };
         setAvailability(result.slots);
         setUnavailable(!result.slots);
+        if (!result.slots) {
+          markUnavailable();
+          return;
+        }
+
         const detectedStatus = getOrderFormPostStatus(result.slots);
         if (detectedStatus && detectedStatus !== currentStatus) {
           onStatusDetectedRef.current?.(detectedStatus);
         }
       } catch {
-        if (!controller.signal.aborted) setUnavailable(true);
+        if (!controller.signal.aborted) markUnavailable();
       }
     }
 

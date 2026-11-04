@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 
 import type { ProductPost } from "../_lib/product-posts";
 import { formatDate, formatPrice } from "../_lib/formatters";
@@ -11,9 +14,10 @@ export default function ProductPostCard({
 }: {
   post: ProductPost;
 }) {
+  const [status, setStatus] = useState(post.status);
   const orderPrice = numericPrice(post.order_price);
   const lessPrice = numericPrice(post.less_price);
-  const isLive = post.status === "live";
+  const isLive = status === "live";
   const detailUrl = `/products/${post.id}`;
   const productLink = firstProductOrderLink(post.description);
   const platformName = post.platform?.trim() || productLink?.platform || "Platform not specified";
@@ -86,7 +90,12 @@ export default function ProductPostCard({
         </div>
 
         <div className="mt-2 min-h-5">
-          <ProductPostSlotCount className="mt-0 md:mt-0" formUrl={post.order_form_url} />
+          <ProductPostSlotCount
+            className="mt-0 md:mt-0"
+            currentStatus={status}
+            formUrl={post.order_form_url}
+            onStatusDetected={setStatus}
+          />
         </div>
 
         <div className="mt-auto flex flex-col gap-1.5 pt-2 md:pt-3">
