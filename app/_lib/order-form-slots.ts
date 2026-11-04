@@ -11,7 +11,8 @@ export type OrderFormSlotAvailability = {
 export function getOrderFormPostStatus(
   availability: OrderFormSlotAvailability | null,
 ): "live" | "over" | null {
-  if (!availability || availability.slots.length === 0) return null;
+  if (!availability) return null;
+  if (availability.slots.length === 0) return "over";
   return availability.slots.some((slot) => slot.availableSlots > 0)
     ? "live"
     : "over";
@@ -76,10 +77,10 @@ function slotCount(value: unknown) {
   return Number.isSafeInteger(count) && count >= 0 ? count : null;
 }
 
-function slotsFromAvailableDeals(value: string): OrderFormSlot[] {
+function slotsFromAvailableDeals(value: string): OrderFormSlot[] | null {
   try {
     const deals: unknown = JSON.parse(decodeText(value));
-    if (!Array.isArray(deals)) return [];
+    if (!Array.isArray(deals)) return null;
 
     const seenDealTypes = new Set<string>();
     return deals.flatMap((deal) => {
@@ -93,7 +94,7 @@ function slotsFromAvailableDeals(value: string): OrderFormSlot[] {
       return [{ dealType, availableSlots }];
     });
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -106,16 +107,17 @@ function slotsFromOrderFormOption(html: string, productCode: string) {
   for (const match of html.matchAll(/<option\b[^>]*>/gi)) {
     const option = match[0];
     if (decodeText(attributeValue(option, "value")) !== productCode) continue;
-    return slotsFromAvailableDeals(attributeValue(option, "data-available-deals"));
+    const availableDeals = attributeValue(option, "data-available-deals");
+    return availableDeals ? slotsFromAvailableDeals(availableDeals) : null;
   }
 
-  return [];
+  return null;
 }
 
 export function parseJayShakthiOrderFormSlots(html: string, productCode?: string): OrderFormSlot[] {
   if (productCode) {
     const optionSlots = slotsFromOrderFormOption(html, productCode);
-    if (optionSlots.length > 0) return optionSlots;
+    if (optionSlots !== null) return optionSlots;
   }
 
   const text = plainTextFromHtml(html);
@@ -153,8 +155,12 @@ export async function getJayShakthiOrderFormSlots(description: string): Promise<
     if (!response.ok) return null;
 
     const productCode = new URL(formUrl).searchParams.get("product_code") ?? undefined;
-    const slots = parseJayShakthiOrderFormSlots((await response.text()).slice(0, maximumResponseLength), productCode);
-    return slots.length > 0 ? { formUrl, slots } : null;
+    const html = (await response.text()).slice(0, maximumResponseLength);
+    const productSlots = productCode
+      ? slotsFromOrderFormOption(html, productCode)
+      : null;
+    const slots = productSlots ?? parseJayShakthiOrderFormSlots(html, productCode);
+    return productSlots !== null || slots.length > 0 ? { formUrl, slots } : null;
   } catch {
     // The product card remains usable when the external order-form site is unavailable.
     return null;

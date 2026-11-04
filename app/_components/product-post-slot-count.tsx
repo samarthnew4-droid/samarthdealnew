@@ -65,7 +65,7 @@ export default function ProductPostSlotCount({
 
   return (
     <div aria-live="polite" className={`${className} flex flex-wrap gap-1.5`}>
-      {availability
+      {availability && availability.slots.length > 0
         ? availability.slots.map((slot) => (
             <span
               className={`w-fit rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide md:text-xs ${
@@ -80,7 +80,11 @@ export default function ProductPostSlotCount({
           ))
         : (
             <span className="w-fit rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-slate-600 md:text-xs">
-              {unavailable ? "Slots unavailable" : "Checking slots…"}
+              {availability
+                ? "No slots available"
+                : unavailable
+                  ? "Slots unavailable"
+                  : "Checking slots…"}
             </span>
           )}
     </div>

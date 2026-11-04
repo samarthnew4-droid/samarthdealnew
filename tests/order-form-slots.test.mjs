@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { getJayShakthiOrderFormUrl, getOrderFormPostStatus, parseJayShakthiOrderFormSlots } from "../app/_lib/order-form-slots.ts";
+import {
+  getJayShakthiOrderFormSlots,
+  getJayShakthiOrderFormUrl,
+  getOrderFormPostStatus,
+  parseJayShakthiOrderFormSlots,
+} from "../app/_lib/order-form-slots.ts";
 
 test("finds a Jay Shakthi order form in a WhatsApp-style Markdown message", () => {
   const description = "📝 *Order Form:* [**Open**](https://deal.jayshakthimarketing.com/orderform?product_code=Unigen_WiFiDongle5g_Az\\&deal_type_id=7079\\&mediator_name=Samarth)";
@@ -14,6 +19,7 @@ test("finds a Jay Shakthi order form in a WhatsApp-style Markdown message", () =
 
 test("rejects non-Jay-Shakthi URLs so a description cannot choose the server fetch target", () => {
   assert.equal(getJayShakthiOrderFormUrl("https://example.com/orderform?deal_type_id=7079"), null);
+  assert.equal(getJayShakthiOrderFormUrl("https://docs.google.com/forms/d/e/example/viewform"), null);
 });
 
 test("reads deal types and counts from the order-form availability message", () => {
@@ -36,6 +42,26 @@ test("reads the live slot data embedded in a Jay Shakthi order form", () => {
       { dealType: "Rating", availableSlots: 0 },
     ],
   );
+});
+
+test("treats a confirmed empty product deal list as over without using unrelated slot totals", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response(
+      '<option value="Product_A" data-available-deals="[]"></option><p>Available Slots: Review: 5</p>',
+      { status: 200 },
+    );
+
+  try {
+    const availability = await getJayShakthiOrderFormSlots(
+      "https://deal.jayshakthimarketing.com/orderform?product_code=Product_A",
+    );
+
+    assert.deepEqual(availability?.slots, []);
+    assert.equal(getOrderFormPostStatus(availability), "over");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("chooses LIVE if any deal type still has slots", () => {
@@ -68,6 +94,6 @@ test("chooses OVER only when every deal type is sold out", () => {
       formUrl: "https://deal.jayshakthimarketing.com/orderform",
       slots: [],
     }),
-    null,
+    "over",
   );
 });
