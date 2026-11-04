@@ -1,5 +1,7 @@
 "use client";
 
+import BrandWordmark from "./brand-wordmark";
+
 interface HeaderProps {
   onHowItWorks: () => void;
   onRefundTime: () => void;
@@ -17,9 +19,7 @@ export default function Header({
     <header className="border-b border-slate-200/80 bg-white">
       <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="bg-gradient-to-r from-slate-800 via-blue-800 to-emerald-700 bg-clip-text text-2xl font-black tracking-tight text-transparent drop-shadow-[0_2px_8px_rgba(30,64,175,0.14)] sm:text-3xl">
-            SAMARTH DEALS
-          </h1>
+          <BrandWordmark className="block h-auto w-full max-w-[500px] sm:w-[min(48vw,500px)]" />
           <nav aria-label="Primary navigation" className="flex flex-wrap items-center gap-3 text-sm font-semibold sm:gap-4">
             <button
               className="text-slate-700 transition hover:text-orange-700 focus:outline-none focus:ring-4 focus:ring-orange-500/20"

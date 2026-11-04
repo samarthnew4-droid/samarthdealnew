@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import BrandWordmark from "../../_components/brand-wordmark";
 import { formatDate, formatPrice } from "../../_lib/formatters";
 import { getPublishedDeal } from "../../_lib/published-deal";
 
@@ -50,6 +51,9 @@ export default async function DealDetailPage({ params }: PageProps<"/deals/[id]"
   return (
     <main className="min-h-screen bg-slate-50 text-slate-950">
       <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
+        <Link aria-label="Samarth Deals home" className="mb-3 block w-full max-w-[440px]" href="/">
+          <BrandWordmark className="block h-auto w-full" />
+        </Link>
         <Link className="text-sm font-bold text-slate-700 underline decoration-slate-300 underline-offset-4 hover:text-slate-950 hover:decoration-slate-950" href="/">
           ← Back to deals
         </Link>

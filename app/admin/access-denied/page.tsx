@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import BrandWordmark from "../../_components/brand-wordmark";
 import LogoutButton from "../logout-button";
 import { getAdminSession } from "../../_lib/admin-auth";
 
@@ -19,6 +20,7 @@ export default async function AccessDeniedPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10 text-center text-slate-950">
       <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <BrandWordmark className="mx-auto block h-auto w-full max-w-[400px]" />
         <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-amber-700">Access restricted</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight">Admin access denied</h1>
         <p className="mt-3 text-sm leading-6 text-slate-600">

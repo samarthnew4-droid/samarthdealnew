@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { getAdminSession } from "../_lib/admin-auth";
+import BrandWordmark from "../_components/brand-wordmark";
 import { getAdminProductPosts } from "../_lib/admin-product-posts";
 import AdminProductManager from "./admin-product-manager";
 import LogoutButton from "./logout-button";
@@ -26,7 +27,9 @@ export default async function AdminPage() {
       <div className="mx-auto max-w-5xl">
         <header className="flex flex-col gap-6 border-b border-slate-200 pb-7 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="bg-gradient-to-r from-slate-800 via-blue-800 to-emerald-700 bg-clip-text text-xs font-black uppercase tracking-[0.16em] text-transparent">SAMARTH DEALS</p>
+            <Link aria-label="Samarth Deals home" className="block w-full max-w-[400px]" href="/">
+              <BrandWordmark className="block h-auto w-full" />
+            </Link>
             <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Admin Dashboard</h1>
             <p className="mt-2 text-sm text-slate-600">Signed in as an authorized administrator</p>
           </div>

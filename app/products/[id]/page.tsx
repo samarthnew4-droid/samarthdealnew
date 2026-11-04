@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import BrandWordmark from "../../_components/brand-wordmark";
 import { extractDealInformation, getDealActions } from "../../_lib/deal-detail";
 import { formatDate, formatPrice } from "../../_lib/formatters";
 import { getPublishedProductPost } from "../../_lib/product-posts";
@@ -94,6 +95,9 @@ export default async function ProductPostPage({ params }: { params: Promise<{ id
   return (
     <main className="min-h-screen bg-[#f4f5f9] px-3 py-4 text-slate-950 sm:px-6 sm:py-10 lg:px-8">
       <div className="mx-auto max-w-4xl">
+        <Link aria-label="Samarth Deals home" className="mb-3 block w-full max-w-[440px]" href="/">
+          <BrandWordmark className="block h-auto w-full" />
+        </Link>
         <Link className="inline-flex min-h-10 items-center text-sm font-bold text-slate-600 transition hover:text-slate-950 focus:outline-none focus:ring-4 focus:ring-slate-950/10" href="/">
           <span aria-hidden="true" className="mr-2">←</span> Back to deals
         </Link>
