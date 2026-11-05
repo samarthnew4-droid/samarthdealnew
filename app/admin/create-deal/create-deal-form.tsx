@@ -152,7 +152,7 @@ export default function CreateDealForm({
       try {
         const response = await fetch(
           `/api/product-post-slots?url=${encodeURIComponent(requestedFormUrl)}`,
-          { signal: controller.signal },
+          { cache: "no-store", signal: controller.signal },
         );
         if (!response.ok) {
           if (slotRequestRef.current === requestId) {

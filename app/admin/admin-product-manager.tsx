@@ -112,14 +112,13 @@ export default function AdminProductManager({
     status: "live" | "over",
   ) => {
     if (statusUpdatesInProgress.current.has(postId)) return;
-    statusUpdatesInProgress.current.add(postId);
     const post = posts.find((item) => item.id === postId);
-    if (post) {
-      setStatusOverrides((current) => ({
-        ...current,
-        [postId]: { status, basedOn: post.status },
-      }));
-    }
+    if (!post) return;
+    statusUpdatesInProgress.current.add(postId);
+    setStatusOverrides((current) => ({
+      ...current,
+      [postId]: { status, basedOn: post.status },
+    }));
 
     function clearStatusOverride() {
       setStatusOverrides((current) => {
@@ -130,7 +129,11 @@ export default function AdminProductManager({
     }
 
     try {
-      const result = await setProductPostStatusAction(postId, status);
+      const result = await setProductPostStatusAction(
+        postId,
+        status,
+        post.updated_at,
+      );
       if (result.errorMessage) {
         setAutoStatusError(result.errorMessage);
         clearStatusOverride();

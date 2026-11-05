@@ -12,10 +12,32 @@ export function getOrderFormPostStatus(
   availability: OrderFormSlotAvailability | null,
 ): "live" | "over" | null {
   if (!availability) return null;
+  if (!isOrderFormSlotAvailability(availability)) return null;
   if (availability.slots.length === 0) return "over";
   return availability.slots.some((slot) => slot.availableSlots > 0)
     ? "live"
     : "over";
+}
+
+export function isOrderFormSlotAvailability(
+  value: unknown,
+): value is OrderFormSlotAvailability {
+  if (!value || typeof value !== "object") return false;
+  const availability = value as Partial<OrderFormSlotAvailability>;
+  return (
+    typeof availability.formUrl === "string" &&
+    availability.formUrl.trim().length > 0 &&
+    Array.isArray(availability.slots) &&
+    availability.slots.every(
+      (slot) =>
+        !!slot &&
+        typeof slot.dealType === "string" &&
+        slot.dealType.trim().length > 0 &&
+        typeof slot.availableSlots === "number" &&
+        Number.isSafeInteger(slot.availableSlots) &&
+        slot.availableSlots >= 0,
+    )
+  );
 }
 
 const jayShakthiOrderFormHost = "deal.jayshakthimarketing.com";
@@ -73,7 +95,12 @@ function plainTextFromHtml(html: string) {
 }
 
 function slotCount(value: unknown) {
-  const count = typeof value === "number" || typeof value === "string" ? Number(value) : Number.NaN;
+  const count =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && /^\d+$/.test(value.trim())
+        ? Number(value.trim())
+        : Number.NaN;
   return Number.isSafeInteger(count) && count >= 0 ? count : null;
 }
 
@@ -83,16 +110,18 @@ function slotsFromAvailableDeals(value: string): OrderFormSlot[] | null {
     if (!Array.isArray(deals)) return null;
 
     const seenDealTypes = new Set<string>();
-    return deals.flatMap((deal) => {
-      if (!deal || typeof deal !== "object") return [];
+    const slots: OrderFormSlot[] = [];
+    for (const deal of deals) {
+      if (!deal || typeof deal !== "object") return null;
       const record = deal as { type_name?: unknown; remaining?: unknown };
       const dealType = typeof record.type_name === "string" ? record.type_name.replace(/\s+/g, " ").trim() : "";
       const availableSlots = slotCount(record.remaining);
       const normalizedDealType = dealType.toLowerCase();
-      if (!dealType || availableSlots === null || seenDealTypes.has(normalizedDealType)) return [];
+      if (!dealType || availableSlots === null || seenDealTypes.has(normalizedDealType)) return null;
       seenDealTypes.add(normalizedDealType);
-      return [{ dealType, availableSlots }];
-    });
+      slots.push({ dealType, availableSlots });
+    }
+    return slots;
   } catch {
     return null;
   }
@@ -156,11 +185,13 @@ export async function getJayShakthiOrderFormSlots(description: string): Promise<
 
     const productCode = new URL(formUrl).searchParams.get("product_code") ?? undefined;
     const html = (await response.text()).slice(0, maximumResponseLength);
-    const productSlots = productCode
-      ? slotsFromOrderFormOption(html, productCode)
-      : null;
-    const slots = productSlots ?? parseJayShakthiOrderFormSlots(html, productCode);
-    return productSlots !== null || slots.length > 0 ? { formUrl, slots } : null;
+    if (productCode) {
+      const productSlots = slotsFromOrderFormOption(html, productCode);
+      return productSlots === null ? null : { formUrl, slots: productSlots };
+    }
+
+    const slots = parseJayShakthiOrderFormSlots(html);
+    return slots.length > 0 ? { formUrl, slots } : null;
   } catch {
     // The product card remains usable when the external order-form site is unavailable.
     return null;

@@ -64,6 +64,110 @@ test("treats a confirmed empty product deal list as over without using unrelated
   }
 });
 
+test("does not use unrelated slot totals when the requested product is missing", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response(
+      '<option value="Another_Product" data-available-deals="[{&quot;type_name&quot;:&quot;Review&quot;,&quot;remaining&quot;:5}]"></option><p>Available Slots: Review: 5</p>',
+      { status: 200 },
+    );
+
+  try {
+    const availability = await getJayShakthiOrderFormSlots(
+      "https://deal.jayshakthimarketing.com/orderform?product_code=Product_A",
+    );
+
+    assert.equal(availability, null);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("treats malformed product slot data as unverified instead of sold out", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response(
+      '<option value="Product_A" data-available-deals=\'[{&quot;type_name&quot;:&quot;Review&quot;,&quot;remaining&quot;:0},{&quot;type_name&quot;:&quot;Rating&quot;,&quot;remaining&quot;:&quot;&quot;}]\'>',
+      { status: 200 },
+    );
+
+  try {
+    const availability = await getJayShakthiOrderFormSlots(
+      "https://deal.jayshakthimarketing.com/orderform?product_code=Product_A",
+    );
+
+    assert.equal(availability, null);
+    assert.equal(getOrderFormPostStatus(availability), null);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("keeps slot counts and status identical across ten unchanged-source checks", async () => {
+  const originalFetch = globalThis.fetch;
+  const response =
+    '<option value="Product_A" data-available-deals=\'[{&quot;type_name&quot;:&quot;Review&quot;,&quot;remaining&quot;:5}]\'></option>';
+  globalThis.fetch = async () => new Response(response, { status: 200 });
+
+  try {
+    const checks = [];
+    for (let index = 0; index < 10; index += 1) {
+      checks.push(
+        await getJayShakthiOrderFormSlots(
+          "https://deal.jayshakthimarketing.com/orderform?product_code=Product_A",
+        ),
+      );
+    }
+
+    assert.deepEqual(
+      checks.map((availability) => ({
+        slots: availability?.slots,
+        status: getOrderFormPostStatus(availability),
+      })),
+      Array.from({ length: 10 }, () => ({
+        slots: [{ dealType: "Review", availableSlots: 5 }],
+        status: "live",
+      })),
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("preserves an unknown status when the source request fails", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    throw new Error("Temporary source outage");
+  };
+
+  try {
+    const availability = await getJayShakthiOrderFormSlots(
+      "https://deal.jayshakthimarketing.com/orderform?product_code=Product_A",
+    );
+    assert.equal(availability, null);
+    assert.equal(getOrderFormPostStatus(availability), null);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("parses slot counts consistently and rejects empty or malformed counts", () => {
+  assert.deepEqual(
+    parseJayShakthiOrderFormSlots(
+      '<option value="Product_A" data-available-deals=\'[{&quot;type_name&quot;:&quot;Review&quot;,&quot;remaining&quot;:&quot;5&quot;}]\'></option>',
+      "Product_A",
+    ),
+    [{ dealType: "Review", availableSlots: 5 }],
+  );
+  assert.deepEqual(
+    parseJayShakthiOrderFormSlots(
+      '<option value="Product_A" data-available-deals=\'[{&quot;type_name&quot;:&quot;Review&quot;,&quot;remaining&quot;:&quot; &quot;}]\'></option>',
+      "Product_A",
+    ),
+    [],
+  );
+});
+
 test("chooses LIVE if any deal type still has slots", () => {
   assert.equal(
     getOrderFormPostStatus({
@@ -75,6 +179,17 @@ test("chooses LIVE if any deal type still has slots", () => {
     }),
     "live",
   );
+});
+
+test("chooses LIVE for one or more verified slots and OVER for exactly zero", () => {
+  const availability = (availableSlots) => ({
+    formUrl: "https://deal.jayshakthimarketing.com/orderform",
+    slots: [{ dealType: "Review", availableSlots }],
+  });
+
+  assert.equal(getOrderFormPostStatus(availability(5)), "live");
+  assert.equal(getOrderFormPostStatus(availability(1)), "live");
+  assert.equal(getOrderFormPostStatus(availability(0)), "over");
 });
 
 test("chooses OVER only when every deal type is sold out", () => {
