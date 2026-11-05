@@ -64,6 +64,25 @@ test("treats a confirmed empty product deal list as over without using unrelated
   }
 });
 
+test("does not use unrelated slot totals when the requested product is missing", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response(
+      '<option value="Another_Product" data-available-deals="[{&quot;type_name&quot;:&quot;Review&quot;,&quot;remaining&quot;:5}]"></option><p>Available Slots: Review: 5</p>',
+      { status: 200 },
+    );
+
+  try {
+    const availability = await getJayShakthiOrderFormSlots(
+      "https://deal.jayshakthimarketing.com/orderform?product_code=Product_A",
+    );
+
+    assert.equal(availability, null);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("chooses LIVE if any deal type still has slots", () => {
   assert.equal(
     getOrderFormPostStatus({

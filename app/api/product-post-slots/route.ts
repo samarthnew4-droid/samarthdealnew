@@ -23,9 +23,7 @@ export async function GET(request: Request) {
     { slots },
     {
       headers: {
-        "Cache-Control": slots
-          ? "public, s-maxage=30, stale-while-revalidate=60"
-          : "no-store",
+        "Cache-Control": "no-store",
       },
     },
   );

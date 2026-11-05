@@ -31,7 +31,6 @@ export default function ProductPostSlotCount({
     const controller = new AbortController();
 
     function markCheckFailed() {
-      setAvailability(null);
       setCheckFailed(true);
     }
 
@@ -39,7 +38,7 @@ export default function ProductPostSlotCount({
       try {
         const response = await fetch(
           `/api/product-post-slots?url=${encodeURIComponent(requestedFormUrl)}`,
-          { signal: controller.signal },
+          { cache: "no-store", signal: controller.signal },
         );
 
         if (!response.ok) {
@@ -50,12 +49,12 @@ export default function ProductPostSlotCount({
         const result = (await response.json()) as {
           slots: OrderFormSlotAvailability | null;
         };
-        setAvailability(result.slots);
         if (!result.slots) {
           markCheckFailed();
           return;
         }
 
+        setAvailability(result.slots);
         setCheckFailed(false);
         const detectedStatus = getOrderFormPostStatus(result.slots);
         if (detectedStatus && detectedStatus !== currentStatus) {

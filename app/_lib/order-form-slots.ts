@@ -156,11 +156,13 @@ export async function getJayShakthiOrderFormSlots(description: string): Promise<
 
     const productCode = new URL(formUrl).searchParams.get("product_code") ?? undefined;
     const html = (await response.text()).slice(0, maximumResponseLength);
-    const productSlots = productCode
-      ? slotsFromOrderFormOption(html, productCode)
-      : null;
-    const slots = productSlots ?? parseJayShakthiOrderFormSlots(html, productCode);
-    return productSlots !== null || slots.length > 0 ? { formUrl, slots } : null;
+    if (productCode) {
+      const productSlots = slotsFromOrderFormOption(html, productCode);
+      return productSlots === null ? null : { formUrl, slots: productSlots };
+    }
+
+    const slots = parseJayShakthiOrderFormSlots(html);
+    return slots.length > 0 ? { formUrl, slots } : null;
   } catch {
     // The product card remains usable when the external order-form site is unavailable.
     return null;
