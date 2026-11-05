@@ -17,7 +17,7 @@ export default function ProductPostSlotCount({
 }) {
   const [availability, setAvailability] =
     useState<OrderFormSlotAvailability | null>(null);
-  const [unavailable, setUnavailable] = useState(false);
+  const [checkFailed, setCheckFailed] = useState(false);
   const onStatusDetectedRef = useRef(onStatusDetected);
 
   useEffect(() => {
@@ -30,12 +30,9 @@ export default function ProductPostSlotCount({
     const requestedFormUrl = formUrl;
     const controller = new AbortController();
 
-    function markUnavailable() {
+    function markCheckFailed() {
       setAvailability(null);
-      setUnavailable(true);
-      if (currentStatus === "live") {
-        onStatusDetectedRef.current?.("over");
-      }
+      setCheckFailed(true);
     }
 
     async function loadSlots() {
@@ -46,7 +43,7 @@ export default function ProductPostSlotCount({
         );
 
         if (!response.ok) {
-          markUnavailable();
+          markCheckFailed();
           return;
         }
 
@@ -54,18 +51,18 @@ export default function ProductPostSlotCount({
           slots: OrderFormSlotAvailability | null;
         };
         setAvailability(result.slots);
-        setUnavailable(!result.slots);
         if (!result.slots) {
-          markUnavailable();
+          markCheckFailed();
           return;
         }
 
+        setCheckFailed(false);
         const detectedStatus = getOrderFormPostStatus(result.slots);
         if (detectedStatus && detectedStatus !== currentStatus) {
           onStatusDetectedRef.current?.(detectedStatus);
         }
       } catch {
-        if (!controller.signal.aborted) markUnavailable();
+        if (!controller.signal.aborted) markCheckFailed();
       }
     }
 
@@ -95,8 +92,8 @@ export default function ProductPostSlotCount({
             <span className="w-fit rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-slate-600 md:text-xs">
               {availability
                 ? "No slots available"
-                : unavailable
-                  ? "Slots unavailable"
+                : checkFailed
+                  ? "Unable to check slots"
                   : "Checking slots…"}
             </span>
           )}
