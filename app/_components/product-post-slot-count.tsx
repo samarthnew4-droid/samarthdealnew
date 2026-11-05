@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { getOrderFormPostStatus, type OrderFormSlotAvailability } from "../_lib/order-form-slots";
+import { loadOrderFormSlots } from "../_lib/order-form-slot-client";
 
 export default function ProductPostSlotCount({
   formUrl,
@@ -15,62 +16,65 @@ export default function ProductPostSlotCount({
   currentStatus?: "draft" | "live" | "over";
   onStatusDetected?: (status: "live" | "over") => void;
 }) {
-  const [availability, setAvailability] =
-    useState<OrderFormSlotAvailability | null>(null);
-  const [checkFailed, setCheckFailed] = useState(false);
+  const [result, setResult] = useState<{
+    formUrl: string;
+    availability: OrderFormSlotAvailability | null;
+    checkFailed: boolean;
+  } | null>(null);
   const onStatusDetectedRef = useRef(onStatusDetected);
+  const currentStatusRef = useRef(currentStatus);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     onStatusDetectedRef.current = onStatusDetected;
   }, [onStatusDetected]);
 
   useEffect(() => {
+    currentStatusRef.current = currentStatus;
+  }, [currentStatus]);
+
+  useEffect(() => {
+    const requestId = ++requestIdRef.current;
     if (!formUrl) return;
 
+    let active = true;
     const requestedFormUrl = formUrl;
-    const controller = new AbortController();
 
-    function markCheckFailed() {
-      setCheckFailed(true);
-    }
-
-    async function loadSlots() {
+    async function checkSlots() {
       try {
-        const response = await fetch(
-          `/api/product-post-slots?url=${encodeURIComponent(requestedFormUrl)}`,
-          { cache: "no-store", signal: controller.signal },
-        );
+        const availability = await loadOrderFormSlots(requestedFormUrl);
+        if (!active || requestIdRef.current !== requestId) return;
 
-        if (!response.ok) {
-          markCheckFailed();
-          return;
-        }
-
-        const result = (await response.json()) as {
-          slots: OrderFormSlotAvailability | null;
-        };
-        if (!result.slots) {
-          markCheckFailed();
-          return;
-        }
-
-        setAvailability(result.slots);
-        setCheckFailed(false);
-        const detectedStatus = getOrderFormPostStatus(result.slots);
-        if (detectedStatus && detectedStatus !== currentStatus) {
+        setResult({
+          formUrl: requestedFormUrl,
+          availability,
+          checkFailed: !availability,
+        });
+        const detectedStatus = getOrderFormPostStatus(availability);
+        if (detectedStatus && detectedStatus !== currentStatusRef.current) {
           onStatusDetectedRef.current?.(detectedStatus);
         }
       } catch {
-        if (!controller.signal.aborted) markCheckFailed();
+        if (active && requestIdRef.current === requestId) {
+          setResult({
+            formUrl: requestedFormUrl,
+            availability: null,
+            checkFailed: true,
+          });
+        }
       }
     }
 
-    void loadSlots();
+    void checkSlots();
 
-    return () => controller.abort();
-  }, [currentStatus, formUrl]);
+    return () => {
+      active = false;
+    };
+  }, [formUrl]);
 
   if (!formUrl) return null;
+  const currentResult = result?.formUrl === formUrl ? result : null;
+  const availability = currentResult?.availability ?? null;
 
   return (
     <div aria-live="polite" className={`${className} flex flex-wrap gap-1.5`}>
@@ -91,7 +95,7 @@ export default function ProductPostSlotCount({
             <span className="w-fit rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-slate-600 md:text-xs">
               {availability
                 ? "No slots available"
-                : checkFailed
+                : currentResult?.checkFailed
                   ? "Unable to check slots"
                   : "Checking slots…"}
             </span>
