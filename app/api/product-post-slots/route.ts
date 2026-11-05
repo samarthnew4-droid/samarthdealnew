@@ -3,9 +3,6 @@ import {
   getJayShakthiOrderFormUrl,
 } from "../../_lib/order-form-slots";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 export async function GET(request: Request) {
   const requestedUrl = new URL(request.url).searchParams.get("url");
 
@@ -26,7 +23,7 @@ export async function GET(request: Request) {
     { slots },
     {
       headers: {
-        "Cache-Control": "no-store, max-age=0",
+        "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
       },
     },
   );

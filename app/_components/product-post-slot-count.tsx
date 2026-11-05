@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 
 import { getOrderFormPostStatus, type OrderFormSlotAvailability } from "../_lib/order-form-slots";
-import { loadOrderFormSlots } from "../_lib/order-form-slot-client";
 
 export default function ProductPostSlotCount({
   formUrl,
@@ -16,65 +15,66 @@ export default function ProductPostSlotCount({
   currentStatus?: "draft" | "live" | "over";
   onStatusDetected?: (status: "live" | "over") => void;
 }) {
-  const [result, setResult] = useState<{
-    formUrl: string;
-    availability: OrderFormSlotAvailability | null;
-    checkFailed: boolean;
-  } | null>(null);
+  const [availability, setAvailability] =
+    useState<OrderFormSlotAvailability | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
   const onStatusDetectedRef = useRef(onStatusDetected);
-  const currentStatusRef = useRef(currentStatus);
-  const requestIdRef = useRef(0);
 
   useEffect(() => {
     onStatusDetectedRef.current = onStatusDetected;
   }, [onStatusDetected]);
 
   useEffect(() => {
-    currentStatusRef.current = currentStatus;
-  }, [currentStatus]);
-
-  useEffect(() => {
-    const requestId = ++requestIdRef.current;
     if (!formUrl) return;
 
-    let active = true;
     const requestedFormUrl = formUrl;
+    const controller = new AbortController();
 
-    async function checkSlots() {
-      try {
-        const availability = await loadOrderFormSlots(requestedFormUrl);
-        if (!active || requestIdRef.current !== requestId) return;
-
-        setResult({
-          formUrl: requestedFormUrl,
-          availability,
-          checkFailed: !availability,
-        });
-        const detectedStatus = getOrderFormPostStatus(availability);
-        if (detectedStatus && detectedStatus !== currentStatusRef.current) {
-          onStatusDetectedRef.current?.(detectedStatus);
-        }
-      } catch {
-        if (active && requestIdRef.current === requestId) {
-          setResult({
-            formUrl: requestedFormUrl,
-            availability: null,
-            checkFailed: true,
-          });
-        }
+    function markUnavailable() {
+      setAvailability(null);
+      setUnavailable(true);
+      if (currentStatus === "live") {
+        onStatusDetectedRef.current?.("over");
       }
     }
 
-    void checkSlots();
+    async function loadSlots() {
+      try {
+        const response = await fetch(
+          `/api/product-post-slots?url=${encodeURIComponent(requestedFormUrl)}`,
+          { signal: controller.signal },
+        );
 
-    return () => {
-      active = false;
-    };
-  }, [formUrl]);
+        if (!response.ok) {
+          markUnavailable();
+          return;
+        }
+
+        const result = (await response.json()) as {
+          slots: OrderFormSlotAvailability | null;
+        };
+        setAvailability(result.slots);
+        setUnavailable(!result.slots);
+        if (!result.slots) {
+          markUnavailable();
+          return;
+        }
+
+        const detectedStatus = getOrderFormPostStatus(result.slots);
+        if (detectedStatus && detectedStatus !== currentStatus) {
+          onStatusDetectedRef.current?.(detectedStatus);
+        }
+      } catch {
+        if (!controller.signal.aborted) markUnavailable();
+      }
+    }
+
+    void loadSlots();
+
+    return () => controller.abort();
+  }, [currentStatus, formUrl]);
 
   if (!formUrl) return null;
-  const currentResult = result?.formUrl === formUrl ? result : null;
-  const availability = currentResult?.availability ?? null;
 
   return (
     <div aria-live="polite" className={`${className} flex flex-wrap gap-1.5`}>
@@ -95,8 +95,8 @@ export default function ProductPostSlotCount({
             <span className="w-fit rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-slate-600 md:text-xs">
               {availability
                 ? "No slots available"
-                : currentResult?.checkFailed
-                  ? "Unable to check slots"
+                : unavailable
+                  ? "Slots unavailable"
                   : "Checking slots…"}
             </span>
           )}

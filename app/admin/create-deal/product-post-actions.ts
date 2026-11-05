@@ -298,28 +298,33 @@ export async function deleteProductPostAction(id: string) {
 }
 
 export async function markProductPostOverAction(id: string) {
-  return setProductPostStatusAction(id, "over");
+  const { user, isAuthorized } = await getAdminSession();
+  if (!user || !isAuthorized) return { errorMessage: "You are not authorized to update product posts." };
+  if (!id) return { errorMessage: "A product post id is required." };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.from("product_posts").update({ status: "over" }).eq("id", id);
+  if (error) return { errorMessage: "We could not mark this product post as over." };
+
+  revalidatePath("/");
+  revalidatePath("/admin");
+  revalidatePath(`/products/${id}`);
+  return { errorMessage: null };
 }
 
 export async function setProductPostStatusAction(
   id: string,
   status: "live" | "over",
-  expectedUpdatedAt?: string,
 ) {
   const { user, isAuthorized } = await getAdminSession();
   if (!user || !isAuthorized) return { errorMessage: "You are not authorized to update product posts." };
   if (!id) return { errorMessage: "A product post id is required." };
 
   const supabase = await createSupabaseServerClient();
-  let updateQuery = supabase
+  const { data: updatedPost, error } = await supabase
     .from("product_posts")
     .update({ status })
     .eq("id", id)
-    .neq("status", status);
-  if (expectedUpdatedAt) {
-    updateQuery = updateQuery.eq("updated_at", expectedUpdatedAt);
-  }
-  const { data: updatedPost, error } = await updateQuery
     .select("id")
     .maybeSingle();
   if (error) {
@@ -327,24 +332,8 @@ export async function setProductPostStatusAction(
     return { errorMessage: "We could not update this product post status." };
   }
   if (!updatedPost) {
-    const { data: currentPost, error: lookupError } = await supabase
-      .from("product_posts")
-      .select("status")
-      .eq("id", id)
-      .maybeSingle();
-    if (lookupError) {
-      logSupabaseError("Unable to verify product post status.", lookupError);
-      return { errorMessage: "We could not verify this product post status." };
-    }
-    if (!currentPost) {
-      return { errorMessage: "That product post could not be found." };
-    }
-    if (currentPost.status !== status) {
-      return {
-        errorMessage: "This product status changed during the availability check. Refresh and try again.",
-      };
-    }
-    return { errorMessage: null };
+    logSupabaseError("Product post status update returned no row.", { code: "UPDATE_NO_ROW", message: `No product post matched id ${id}.` });
+    return { errorMessage: "That product post could not be found." };
   }
 
   revalidatePath("/");
