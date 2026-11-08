@@ -103,10 +103,21 @@ function attributeValue(tag: string, name: string) {
   return match ? match[2] : "";
 }
 
+function matchesProductCode(option: string, productCode: string) {
+  const optionCode = decodeText(attributeValue(option, "value"));
+  if (optionCode === productCode) return true;
+
+  try {
+    return decodeURIComponent(productCode) === optionCode;
+  } catch {
+    return false;
+  }
+}
+
 function slotsFromOrderFormOption(html: string, productCode: string) {
   for (const match of html.matchAll(/<option\b[^>]*>/gi)) {
     const option = match[0];
-    if (decodeText(attributeValue(option, "value")) !== productCode) continue;
+    if (!matchesProductCode(option, productCode)) continue;
     const availableDeals = attributeValue(option, "data-available-deals");
     return availableDeals ? slotsFromAvailableDeals(availableDeals) : null;
   }

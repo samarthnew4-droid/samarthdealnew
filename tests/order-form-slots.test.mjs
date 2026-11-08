@@ -44,6 +44,15 @@ test("reads the live slot data embedded in a Jay Shakthi order form", () => {
   );
 });
 
+test("matches product codes that were URL-encoded twice", () => {
+  const html = '<option value="BON_140Wooden_Spoons&amp;Forks200pc_Az" data-available-deals=\'[{&quot;type_name&quot;:&quot;Review&quot;,&quot;remaining&quot;:3}]\'>';
+
+  assert.deepEqual(
+    parseJayShakthiOrderFormSlots(html, "BON_140Wooden_Spoons%26Forks200pc_Az"),
+    [{ dealType: "Review", availableSlots: 3 }],
+  );
+});
+
 test("treats a confirmed empty product deal list as over without using unrelated slot totals", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () =>
