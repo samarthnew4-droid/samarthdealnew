@@ -13,6 +13,11 @@ interface DealsHomepageProps {
   errorMessage: string | null;
 }
 
+type VisibleProductPost = {
+  post: ProductPost;
+  status: ProductPost["status"] | "checking";
+};
+
 export default function DealsHomepage({ posts, errorMessage }: DealsHomepageProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -27,14 +32,17 @@ export default function DealsHomepage({ posts, errorMessage }: DealsHomepageProp
   const closeDialogRef = useRef<HTMLButtonElement>(null);
   const normalizedQuery = query.trim().toLowerCase();
   const visiblePosts = posts
-    .map((post) => ({
-      post,
-      status: post.order_form_url
-        ? detectedStatuses[post.id]?.formUrl === post.order_form_url
-          ? detectedStatuses[post.id].status
-          : "checking"
-        : post.status,
-    }))
+    .map((post): VisibleProductPost => {
+      const detectedStatus = detectedStatuses[post.id]?.formUrl === post.order_form_url
+        ? detectedStatuses[post.id].status
+        : "checking";
+      return {
+        post,
+        status: post.order_form_url
+          ? detectedStatus === "unavailable" ? "over" : detectedStatus
+          : post.status,
+      };
+    })
     .filter(({ post }) => {
       const searchableContent = [
         post.platform,
@@ -50,7 +58,6 @@ export default function DealsHomepage({ posts, errorMessage }: DealsHomepageProp
   const livePosts = visiblePosts.filter(({ status }) => status === "live");
   const overPosts = visiblePosts.filter(({ status }) => status === "over");
   const checkingPosts = visiblePosts.filter(({ status }) => status === "checking");
-  const unavailablePosts = visiblePosts.filter(({ status }) => status === "unavailable");
 
   function renderProductSection(
     title: string,
@@ -161,7 +168,6 @@ export default function DealsHomepage({ posts, errorMessage }: DealsHomepageProp
             {renderProductSection("CHECKING SLOTS", "checking-slots-heading", checkingPosts, "text-amber-900")}
             {renderProductSection("LIVE DEALS", "live-deals-heading", livePosts, "tracking-tight text-slate-950")}
             {renderProductSection("OVER DEALS", "over-deals-heading", overPosts, "tracking-tight text-slate-700")}
-            {renderProductSection("SLOTS UNAVAILABLE", "unavailable-slots-heading", unavailablePosts, "text-slate-700")}
           </div>
         ) : (
           <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center sm:px-10">

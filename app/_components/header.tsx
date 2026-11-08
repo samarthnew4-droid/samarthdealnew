@@ -20,22 +20,22 @@ export default function Header({
       <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <BrandWordmark className="block h-auto w-full max-w-[500px] sm:w-[min(48vw,500px)]" />
-          <nav aria-label="Primary navigation" className="flex flex-wrap items-center gap-3 text-sm font-semibold sm:gap-4">
+          <nav aria-label="Primary navigation" className="flex flex-wrap items-center gap-2 text-sm font-semibold">
             <button
-              className="text-slate-700 transition hover:text-orange-700 focus:outline-none focus:ring-4 focus:ring-orange-500/20"
+              className="inline-flex min-h-10 items-center justify-center rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-orange-900 transition hover:border-orange-400 hover:bg-orange-100 focus:outline-none focus:ring-4 focus:ring-orange-500/20"
               onClick={onHowItWorks}
               type="button"
             >
               How it works
             </button>
             <button
-              className="text-slate-700 transition hover:text-orange-700 focus:outline-none focus:ring-4 focus:ring-orange-500/20"
+              className="inline-flex min-h-10 items-center justify-center rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-orange-900 transition hover:border-orange-400 hover:bg-orange-100 focus:outline-none focus:ring-4 focus:ring-orange-500/20"
               onClick={onRefundTime}
               type="button"
             >
               Refund Time
             </button>
-            <a className="text-slate-700 transition hover:text-orange-700" href="/admin">
+            <a className="inline-flex min-h-10 items-center justify-center rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-orange-900 transition hover:border-orange-400 hover:bg-orange-100 focus:outline-none focus:ring-4 focus:ring-orange-500/20" href="/admin">
               Admin
             </a>
           </nav>

@@ -21,15 +21,6 @@ export function getOrderFormPostStatus(
 const jayShakthiOrderFormHost = "deal.jayshakthimarketing.com";
 const requestTimeoutMs = 5_000;
 const maximumResponseLength = 1_000_000;
-const orderFormHtmlCacheMs = 10_000;
-
-type OrderFormHtmlCacheEntry = {
-  expiresAt: number;
-  html?: string;
-  request?: Promise<string | null>;
-};
-
-const orderFormHtmlCache = new Map<string, OrderFormHtmlCacheEntry>();
 
 function decodeText(value: string) {
   return value
@@ -112,72 +103,15 @@ function attributeValue(tag: string, name: string) {
   return match ? match[2] : "";
 }
 
-function matchesProductCode(option: string, productCode: string) {
-  const optionCode = decodeText(attributeValue(option, "value"));
-  if (optionCode === productCode) return true;
-
-  try {
-    return decodeURIComponent(productCode) === optionCode;
-  } catch {
-    return false;
-  }
-}
-
 function slotsFromOrderFormOption(html: string, productCode: string) {
   for (const match of html.matchAll(/<option\b[^>]*>/gi)) {
     const option = match[0];
-    if (!matchesProductCode(option, productCode)) continue;
+    if (decodeText(attributeValue(option, "value")) !== productCode) continue;
     const availableDeals = attributeValue(option, "data-available-deals");
     return availableDeals ? slotsFromAvailableDeals(availableDeals) : null;
   }
 
   return null;
-}
-
-async function getOrderFormHtml(formUrl: string) {
-  const cacheUrl = new URL(formUrl);
-  cacheUrl.searchParams.delete("product_code");
-  cacheUrl.searchParams.delete("deal_type_id");
-  cacheUrl.hash = "";
-  cacheUrl.searchParams.sort();
-  const cacheKey = cacheUrl.toString();
-  const cached = orderFormHtmlCache.get(cacheKey);
-
-  if (cached && cached.expiresAt > Date.now()) {
-    return cached.request ?? cached.html ?? null;
-  }
-
-  const entry: OrderFormHtmlCacheEntry = {
-    expiresAt: Date.now() + orderFormHtmlCacheMs,
-  };
-  entry.request = (async () => {
-    try {
-      const response = await fetch(formUrl, {
-        cache: "no-store",
-        headers: { "user-agent": "OrderOnline order-form slot checker/1.0" },
-        redirect: "manual",
-        signal: AbortSignal.timeout(requestTimeoutMs),
-      });
-      if (!response.ok) return null;
-      return (await response.text()).slice(0, maximumResponseLength);
-    } catch {
-      return null;
-    }
-  })();
-  orderFormHtmlCache.set(cacheKey, entry);
-
-  const html = await entry.request;
-  if (orderFormHtmlCache.get(cacheKey) !== entry) return html;
-  if (html === null) {
-    orderFormHtmlCache.delete(cacheKey);
-    return null;
-  }
-
-  orderFormHtmlCache.set(cacheKey, {
-    expiresAt: Date.now() + orderFormHtmlCacheMs,
-    html,
-  });
-  return html;
 }
 
 export function parseJayShakthiOrderFormSlots(html: string, productCode?: string): OrderFormSlot[] {
@@ -212,10 +146,16 @@ export async function getJayShakthiOrderFormSlots(description: string): Promise<
   if (!formUrl) return null;
 
   try {
-    const html = await getOrderFormHtml(formUrl);
-    if (html === null) return null;
+    const response = await fetch(formUrl, {
+      cache: "no-store",
+      headers: { "user-agent": "OrderOnline order-form slot checker/1.0" },
+      redirect: "manual",
+      signal: AbortSignal.timeout(requestTimeoutMs),
+    });
+    if (!response.ok) return null;
 
     const productCode = new URL(formUrl).searchParams.get("product_code") ?? undefined;
+    const html = (await response.text()).slice(0, maximumResponseLength);
     const productSlots = productCode
       ? slotsFromOrderFormOption(html, productCode)
       : null;
