@@ -18,10 +18,10 @@ export default function DealsHomepage({ posts, errorMessage }: DealsHomepageProp
   const [query, setQuery] = useState("");
   const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false);
   const [isRefundTimeOpen, setIsRefundTimeOpen] = useState(false);
-  const [statusOverrides, setStatusOverrides] = useState<
+  const [detectedStatuses, setDetectedStatuses] = useState<
     Record<
       string,
-      { status: ProductPost["status"]; basedOn: ProductPost["status"] }
+      { formUrl: string; status: ProductPost["status"] | "unavailable" }
     >
   >({});
   const closeDialogRef = useRef<HTMLButtonElement>(null);
@@ -29,10 +29,11 @@ export default function DealsHomepage({ posts, errorMessage }: DealsHomepageProp
   const visiblePosts = posts
     .map((post) => ({
       post,
-      status:
-        statusOverrides[post.id]?.basedOn === post.status
-          ? statusOverrides[post.id].status
-          : post.status,
+      status: post.order_form_url
+        ? detectedStatuses[post.id]?.formUrl === post.order_form_url
+          ? detectedStatuses[post.id].status
+          : "checking"
+        : post.status,
     }))
     .filter(({ post }) => {
       const searchableContent = [
@@ -48,6 +49,47 @@ export default function DealsHomepage({ posts, errorMessage }: DealsHomepageProp
     });
   const livePosts = visiblePosts.filter(({ status }) => status === "live");
   const overPosts = visiblePosts.filter(({ status }) => status === "over");
+  const checkingPosts = visiblePosts.filter(({ status }) => status === "checking");
+  const unavailablePosts = visiblePosts.filter(({ status }) => status === "unavailable");
+
+  function renderProductSection(
+    title: string,
+    id: string,
+    products: typeof visiblePosts,
+    headingClass: string,
+  ) {
+    if (products.length === 0) return null;
+
+    return (
+      <section aria-labelledby={id}>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className={`text-xl font-black sm:text-2xl ${headingClass}`} id={id}>{title}</h2>
+          <p className="text-xs font-medium text-slate-600 sm:text-sm">{products.length} {products.length === 1 ? "deal" : "deals"}</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 lg:gap-4">
+          {products.map(({ post, status }) => (
+            <ProductPostCard
+              key={post.id}
+              onDetectionResult={(detectedStatus) =>
+                setDetectedStatuses((current) => {
+                  if (detectedStatus === "checking") return current;
+                  const formUrl = post.order_form_url;
+                  if (!formUrl) return current;
+                  const previous = current[post.id];
+                  if (previous?.formUrl === formUrl && previous.status === detectedStatus) {
+                    return current;
+                  }
+                  return { ...current, [post.id]: { formUrl, status: detectedStatus } };
+                })
+              }
+              post={post}
+              status={status}
+            />
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   useEffect(() => {
     if (!isHowItWorksOpen && !isRefundTimeOpen) return;
@@ -116,58 +158,10 @@ export default function DealsHomepage({ posts, errorMessage }: DealsHomepageProp
           </div>
         ) : visiblePosts.length > 0 ? (
           <div className="space-y-8">
-            {livePosts.length > 0 && (
-              <section aria-labelledby="live-deals-heading">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <h2 className="text-xl font-black tracking-tight text-slate-950 sm:text-2xl" id="live-deals-heading">LIVE DEALS</h2>
-                  <p className="text-xs font-medium text-slate-600 sm:text-sm">{livePosts.length} {livePosts.length === 1 ? "deal" : "deals"}</p>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 lg:gap-4">
-                  {livePosts.map(({ post, status }) => (
-                    <ProductPostCard
-                      key={post.id}
-                      onStatusDetected={(detectedStatus) =>
-                        setStatusOverrides((current) => ({
-                          ...current,
-                          [post.id]: {
-                            status: detectedStatus,
-                            basedOn: post.status,
-                          },
-                        }))
-                      }
-                      post={post}
-                      status={status}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-            {overPosts.length > 0 && (
-              <section aria-labelledby="over-deals-heading">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <h2 className="text-xl font-black tracking-tight text-slate-700 sm:text-2xl" id="over-deals-heading">OVER DEALS</h2>
-                  <p className="text-xs font-medium text-slate-600 sm:text-sm">{overPosts.length} {overPosts.length === 1 ? "deal" : "deals"}</p>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 lg:gap-4">
-                  {overPosts.map(({ post, status }) => (
-                    <ProductPostCard
-                      key={post.id}
-                      onStatusDetected={(detectedStatus) =>
-                        setStatusOverrides((current) => ({
-                          ...current,
-                          [post.id]: {
-                            status: detectedStatus,
-                            basedOn: post.status,
-                          },
-                        }))
-                      }
-                      post={post}
-                      status={status}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
+            {renderProductSection("CHECKING SLOTS", "checking-slots-heading", checkingPosts, "text-amber-900")}
+            {renderProductSection("LIVE DEALS", "live-deals-heading", livePosts, "tracking-tight text-slate-950")}
+            {renderProductSection("OVER DEALS", "over-deals-heading", overPosts, "tracking-tight text-slate-700")}
+            {renderProductSection("SLOTS UNAVAILABLE", "unavailable-slots-heading", unavailablePosts, "text-slate-700")}
           </div>
         ) : (
           <div className="mt-5 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center sm:px-10">

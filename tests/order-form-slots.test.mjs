@@ -53,6 +53,31 @@ test("matches product codes that were URL-encoded twice", () => {
   );
 });
 
+test("shares one order-form response across products from the same mediator", async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCount = 0;
+  globalThis.fetch = async () => {
+    fetchCount += 1;
+    return new Response(
+      '<option value="Product_A" data-available-deals="[{&quot;type_name&quot;:&quot;Review&quot;,&quot;remaining&quot;:4}]"></option><option value="Product_B" data-available-deals="[{&quot;type_name&quot;:&quot;Rating&quot;,&quot;remaining&quot;:0}]"></option>',
+      { status: 200 },
+    );
+  };
+
+  try {
+    const [available, soldOut] = await Promise.all([
+      getJayShakthiOrderFormSlots("https://deal.jayshakthimarketing.com/orderform?product_code=Product_A&deal_type_id=1&mediator_name=CacheTest"),
+      getJayShakthiOrderFormSlots("https://deal.jayshakthimarketing.com/orderform?product_code=Product_B&deal_type_id=2&mediator_name=CacheTest"),
+    ]);
+
+    assert.equal(fetchCount, 1);
+    assert.deepEqual(available?.slots, [{ dealType: "Review", availableSlots: 4 }]);
+    assert.deepEqual(soldOut?.slots, [{ dealType: "Rating", availableSlots: 0 }]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("treats a confirmed empty product deal list as over without using unrelated slot totals", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () =>

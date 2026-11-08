@@ -9,33 +9,45 @@ export default function ProductPostSlotCount({
   className = "mt-2",
   currentStatus,
   onStatusDetected,
+  onDetectionResult,
 }: {
   formUrl: string | null;
   className?: string;
-  currentStatus?: "draft" | "live" | "over";
+  currentStatus?: "draft" | "live" | "over" | "checking" | "unavailable";
   onStatusDetected?: (status: "live" | "over") => void;
+  onDetectionResult?: (status: "live" | "over" | "checking" | "unavailable") => void;
 }) {
-  const [availability, setAvailability] =
-    useState<OrderFormSlotAvailability | null>(null);
-  const [unavailable, setUnavailable] = useState(false);
+  const [slotResult, setSlotResult] = useState<{
+    formUrl: string;
+    availability: OrderFormSlotAvailability | null;
+    unavailable: boolean;
+  } | null>(null);
   const onStatusDetectedRef = useRef(onStatusDetected);
+  const onDetectionResultRef = useRef(onDetectionResult);
+  const currentStatusRef = useRef(currentStatus);
 
   useEffect(() => {
     onStatusDetectedRef.current = onStatusDetected;
   }, [onStatusDetected]);
 
   useEffect(() => {
+    onDetectionResultRef.current = onDetectionResult;
+  }, [onDetectionResult]);
+
+  useEffect(() => {
+    currentStatusRef.current = currentStatus;
+  }, [currentStatus]);
+
+  useEffect(() => {
     if (!formUrl) return;
 
     const requestedFormUrl = formUrl;
     const controller = new AbortController();
+    onDetectionResultRef.current?.("checking");
 
     function markUnavailable() {
-      setAvailability(null);
-      setUnavailable(true);
-      if (currentStatus === "live") {
-        onStatusDetectedRef.current?.("over");
-      }
+      setSlotResult({ formUrl: requestedFormUrl, availability: null, unavailable: true });
+      onDetectionResultRef.current?.("unavailable");
     }
 
     async function loadSlots() {
@@ -53,15 +65,19 @@ export default function ProductPostSlotCount({
         const result = (await response.json()) as {
           slots: OrderFormSlotAvailability | null;
         };
-        setAvailability(result.slots);
-        setUnavailable(!result.slots);
+        setSlotResult({
+          formUrl: requestedFormUrl,
+          availability: result.slots,
+          unavailable: !result.slots,
+        });
         if (!result.slots) {
           markUnavailable();
           return;
         }
 
         const detectedStatus = getOrderFormPostStatus(result.slots);
-        if (detectedStatus && detectedStatus !== currentStatus) {
+        onDetectionResultRef.current?.(detectedStatus ?? "unavailable");
+        if (detectedStatus && detectedStatus !== currentStatusRef.current) {
           onStatusDetectedRef.current?.(detectedStatus);
         }
       } catch {
@@ -72,9 +88,13 @@ export default function ProductPostSlotCount({
     void loadSlots();
 
     return () => controller.abort();
-  }, [currentStatus, formUrl]);
+  }, [formUrl]);
 
   if (!formUrl) return null;
+
+  const currentResult = slotResult?.formUrl === formUrl ? slotResult : null;
+  const availability = currentResult?.availability ?? null;
+  const unavailable = currentResult?.unavailable ?? false;
 
   return (
     <div aria-live="polite" className={`${className} flex flex-wrap gap-1.5`}>

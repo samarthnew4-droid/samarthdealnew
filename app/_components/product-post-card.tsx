@@ -11,15 +11,16 @@ import ProductPostSlotCount from "./product-post-slot-count";
 export default function ProductPostCard({
   post,
   status = post.status,
-  onStatusDetected,
+  onDetectionResult,
 }: {
   post: ProductPost;
-  status?: ProductPost["status"];
-  onStatusDetected?: (status: ProductPost["status"]) => void;
+  status?: ProductPost["status"] | "checking" | "unavailable";
+  onDetectionResult?: (status: "live" | "over" | "checking" | "unavailable") => void;
 }) {
   const orderPrice = numericPrice(post.order_price);
   const lessPrice = numericPrice(post.less_price);
   const isLive = status === "live";
+  const badgeLabel = status === "checking" ? "CHECKING" : status === "unavailable" ? "UNAVAILABLE" : status.toUpperCase();
   const detailUrl = `/products/${post.id}`;
   const productLink = firstProductOrderLink(post.description);
   const platformName = post.platform?.trim() || productLink?.platform || "Platform not specified";
@@ -44,10 +45,10 @@ export default function ProductPostCard({
 
         <span
           className={`absolute left-2 top-2 rounded-full px-2 py-1 text-[9px] font-black tracking-[0.1em] shadow-sm md:left-4 md:top-4 md:px-3 md:py-1.5 md:text-[10px] ${
-            isLive ? "bg-emerald-500 text-white" : "bg-slate-800 text-white"
+            isLive ? "bg-emerald-500 text-white" : status === "over" ? "bg-slate-800 text-white" : "bg-amber-100 text-amber-900"
           }`}
         >
-          {isLive ? "LIVE" : "OVER"}
+          {badgeLabel}
         </span>
       </div>
 
@@ -96,7 +97,7 @@ export default function ProductPostCard({
             className="mt-0 md:mt-0"
             currentStatus={status}
             formUrl={post.order_form_url}
-            onStatusDetected={onStatusDetected}
+            onDetectionResult={onDetectionResult}
           />
         </div>
 
